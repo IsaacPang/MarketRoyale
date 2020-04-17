@@ -52,4 +52,25 @@ class Player(BasePlayer):
         self.researched = {}
         self.rumours = {}
         self.inventory = {}
+    
+    def take_turn(self, location, prices, info, bm, gm):
+        '''Player takes a turn with (hopefully) informed choices.
+        Player can take any one of the following turns:
+        - Research current market
+        - Buy from market
+        - Sell to market
+        - Move to adjacent market
+        - Pass turn
+        '''
+        return Command.PASS, None
 
+    def __repr__(self):
+        '''Define the representation of the Player as the state of 
+        current attributes.
+        '''
+        s = str(self.__dict__)
+        return s
+        
+
+if __name__ == "__main__":
+    print(Player())
