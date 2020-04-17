@@ -19,13 +19,12 @@ At the start of each turn, the player will:
  |Check glossary of rumoured information. Rumours are information from other players.
 
 Authors: Syndicate 8 - MBusA2020 Module 2
-
-         Renee He            (h.he13@student.unimelb.edu.au)
-         Joshua Xujuang Lin  (xujiang.lin@student.unimelb.edu.au)
-         Ellie Meng          (h.meng2@student.unimelb.edu.au)
-         Isaac Pang          (i.pang2@student.unimelb.edu.au)
-         Tann Tan            (h.tan49@student.unimelb.edu.au)
-         Grace Zhu           (grace.zhu@student.unimelb.edu.au)
+             Renee He            (h.he13@student.unimelb.edu.au)
+             Joshua Xujuang Lin  (xujiang.lin@student.unimelb.edu.au)
+             Ellie Meng          (h.meng2@student.unimelb.edu.au)
+             Isaac Pang          (i.pang2@student.unimelb.edu.au)
+             Tann Tan            (h.tan49@student.unimelb.edu.au)
+             Grace Zhu           (grace.zhu@student.unimelb.edu.au)
 
 TODO List:
     - Literally everything
