@@ -1,6 +1,9 @@
 # MarketRoyale
 A python implementation of a Market Royale game for the programming assignment of MBusA2020
 
+## Optimisation & Strategies
+An updated discussion on strategies can be found [here](approach.md)
+
 ## Rules of Market Royale
 
 A game is made of 7 players.\
@@ -45,6 +48,3 @@ Every turn, a player can make 1 of the following moves:
 1. A player may not purchase if the current market node has not been personally researched.
 2. A player may only take 1 action per turn.
 3. If multiple players purchase the same item, there is a possibility of a wasted turn, i.e. sold out item before able to buy.
-
-## Optimisation & Strategies
-An updated discussion on strategies can be found [here](approach.md)
