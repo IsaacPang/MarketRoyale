@@ -2,12 +2,6 @@
 Player class for the Market Royale game.
 
 This module creates a player for the Market Royale game.
-The player can do one of the following at the end of each turn:
- |Research current market.
- |Buy (product, amount) from current market.
- |Sell (product, amount) to current market.
- |Move to adjacent (market) from current market.
- |Pass turn and do nothing.
 
 At the start of each turn, the player will:
  |Take stock of current inventory.
@@ -17,6 +11,13 @@ At the start of each turn, the player will:
  |Tally gold on most recent previous overdraft event.
  |Check glossary of researched information.
  |Check glossary of rumoured information. Rumours are information from other players.
+
+Given the information, the player can do one of the following at the end of each turn:
+ |Research current market.
+ |Buy (product, amount) from current market.
+ |Sell (product, amount) to current market.
+ |Move to adjacent (market) from current market.
+ |Pass turn and do nothing.
 
 Authors: Syndicate 8 - MBusA2020 Module 2
              Renee He            (h.he13@student.unimelb.edu.au)
