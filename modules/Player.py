@@ -49,7 +49,7 @@ Dream TODO List:
 
 
 import Command
-from BasePlayer import Baseplayer
+from BasePlayer import BasePlayer
 from collections import defaultdict, deque
 
 
