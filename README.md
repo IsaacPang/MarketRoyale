@@ -1,5 +1,5 @@
 # MarketRoyale
-Python implementation of a Market Royale game for the assignment of MBusA2020
+A python implementation of a Market Royale game for the programming assignment of MBusA2020
 
 ## Rules of Market Royale
 
@@ -14,7 +14,7 @@ The game lasts 50 turns.
 At the start of the game:
 - All players will each start at a random node. str
 - All players will receive the same amount of randomised gold. float
-- All players will receive a map of the markets and roads connecting them. <map object>
+- All players will receive a map of the markets and roads connecting them. \<map object\>
 - All players will receive a different, random goal, to purchase a required amount of a certain product (or products). dict
 
 The objective of the game is to approach different markets and look to purchase products within the given gold budget to achieve the goal. Any bonus gold leftover will be added as bonus points.
@@ -25,8 +25,8 @@ The objective of the game is to approach different markets and look to purchase 
 3. Each market only sells a subset of products.
 4. Each market sells only a finite amount of each product.
 5. All roads are equidistant (edges have no weight).
-6. If a player's gold amount is < 0, an 10% overdraft fee is incurred every turn.
-7. Players may only move to an neighbouring market.
+6. If a player's gold amount is < 0, a 10% overdraft fee is incurred every turn.
+7. Players may only move to a neighbouring market.
 
 ### Dynamic game conditions
 1. The total stock in-game is finite, therefore items can be bought out in certain markets.
@@ -45,3 +45,6 @@ Every turn, a player can make 1 of the following moves:
 1. A player may not purchase if the current market node has not been personally researched.
 2. A player may only take 1 action per turn.
 3. If multiple players purchase the same item, there is a possibility of a wasted turn, i.e. sold out item before able to buy.
+
+## Optimisation & Strategies
+An updated discussion on strategies can be found [here](approach.md)
