@@ -26,4 +26,30 @@ Authors: Syndicate 8 - MBusA2020 Module 2
          Isaac Pang          (i.pang2@student.unimelb.edu.au)
          Tann Tan            (h.tan49@student.unimelb.edu.au)
          Grace Zhu           (grace.zhu@student.unimelb.edu.au)
+
+TODO List:
+    - Literally everything
+
+Dream TODO List:
+    - Machine Learning to predict where to go, maybe
+    - A*/BFS for optimisation of movement
 """
+
+
+import Command
+from BasePlayer import Baseplayer
+from collections import defaultdict, deque
+
+
+class Player(BasePlayer):
+    def __init_(self):
+        # Initialise the class without arguments
+        # Inherit the parent init properties
+        super().__init__()
+
+        # Set additional properties
+        self.turn = 0
+        self.researched = {}
+        self.rumours = {}
+        self.inventory = {}
+
