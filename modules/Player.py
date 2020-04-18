@@ -64,6 +64,7 @@ class Player(BasePlayer):
         self.researched = {}
         self.rumours = {}
         self.inventory = {}
+        self.location = ''
     
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
@@ -83,20 +84,64 @@ class Player(BasePlayer):
         s = str(self.__dict__)
         return s
 
-    def best_path_to(self, node):
-        """Deployment of a modified breadth-first search algorithm
-        to determine the fastest path to a given node. Since all 
-        edges are currently unweighted, only simplified breadth-first
+    def best_path(self, target):
+        """Finds the fastest path by employing a breadth-first search algorithm.
+        Since all edges are currently unweighted, only simplified breadth-first
         while storing each previous node is required
         """
+        # TODO: need to update location before calling function
+        # Set the starting location as the player's current location
+        start = self.location
 
-        pass
+        # Collect all the nodes in the given map
+        nodes = self.map.get_node_names()
+        assert(target in nodes, "Target node not found in map")
+
+        # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
+        # All nodes will have a not None node except the starting node
+        # Example: None -> A -> B -> C :: Backtrack None <- A <- B <- C
+        previous = {node: None for node in nodes}
+
+        # Must only visit every node exactly once for a BFS
+        # Set current market as visited
+        visited = {node: False for node in nodes}
+        visited[start] = True
+
+        # Create a queue data structure for markets to visit. A queue is required for FIFO, we want to analyse all
+        # neighbouring nodes of the current node before we proceed
+        queue = deque([start])
+
+        # Start looping through the map from the current node
+        while True:
+            # Identify the currently assessed node
+            current = queue.pop()
+
+            # If the current node is the target node, we are done we need to backtrack to the start to create the path
+            # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right
+            if current == target:
+                path = deque()
+                while current:
+                    path.appendleft(current)
+                    current = previous[current]
+
+                return path
+
+            # Collect the neighbours of this market and iterate over them
+            neighbours = self.map.get_neighbours(current)
+            for n in neighbours:
+                # if the neighbours have not been visited, add them to the queue.
+                # Set the current node as the previous node for all neighbours.
+                if not visited[n]:
+                    queue.appendleft(n)
+                    visited[n] = True
+                    previous[n] = current
 
 
 # Write a main function for testing
 def main():
 
     import unittest
+    import random
     from time import time
     from Map import Map
     import string
@@ -117,6 +162,9 @@ def main():
     test_map.pretty_print_node_graph()
 
     test_map.pretty_print_map()
+
+    player = Player()
+
 
 if __name__ == "__main__":
     main()
