@@ -7,7 +7,7 @@ The dummy player does not do anything. It does not modify the parent class.
 The purpose of the dummy player is an initial test for Game and its output.
 """
 import Command
-from BasePlayer import Baseplayer
+from BasePlayer import BasePlayer
 
 
 class DummyPlayer(BasePlayer):
