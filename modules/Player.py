@@ -64,6 +64,7 @@ class Player(BasePlayer):
         self.researched = {}
         self.rumours = {}
         self.inventory = {}
+        self.goal_acheived = False  
     
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
@@ -74,7 +75,36 @@ class Player(BasePlayer):
         - Move to adjacent market
         - Pass turn
         '''
-        return Command.PASS, None
+        # collect information from other player
+        
+        # check inventory
+        result1 = check_inventory()
+        # check if goal acheieved
+        goal_acheived = check_goal(result1)
+        # check if goal exist in any of any researched/rumoured markets
+        if not goal_acheived:
+
+            # search for a market that player can afford
+            togomarket = search_market(result1, gold)
+            
+            # next step
+            nextstepstring = nextstep(currentnode, togomarket)
+
+            if currentnode != nextstepstring:
+                return (MOVE, nextstepstring)
+            # already at target market
+            else:
+                # find out what we need to buy
+                buytuple = whattobuy(result1)
+                # buy
+                return (BUY, buytuple)
+
+        else:
+            return (PASS, None)
+ 
+
+
+        
 
     def __repr__(self):
         '''Define the representation of the Player as the state of 
