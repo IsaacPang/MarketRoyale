@@ -54,7 +54,7 @@ from collections import defaultdict, deque
 
 
 class Player(BasePlayer):
-    def __init_(self):
+    def __init__(self):
         # Initialise the class without arguments
         # Inherit the parent init properties
         super().__init__()
@@ -82,7 +82,41 @@ class Player(BasePlayer):
         '''
         s = str(self.__dict__)
         return s
-        
+
+    def best_path_to(self, node):
+        """Deployment of a modified breadth-first search algorithm
+        to determine the fastest path to a given node. Since all 
+        edges are currently unweighted, only simplified breadth-first
+        while storing each previous node is required
+        """
+
+        pass
+
+
+# Write a main function for testing
+def main():
+
+    import unittest
+    from time import time
+    from Map import Map
+    import string
+
+    map_width = 200
+    map_height = 100
+    resolution_x = 2
+    resolution_y = 3
+
+    node_list = list(string.ascii_uppercase)[:10]
+    # keep a list of good seeds
+    good_seeds = [23624]
+    test_map = Map(node_list, map_width, map_height, resolution_x, resolution_y, seed=good_seeds[0])
+
+    print('map_data["node_positions"]\n')
+    test_map.pretty_print_node_positions()
+    print('map_data["node_graph"]\n')
+    test_map.pretty_print_node_graph()
+
+    test_map.pretty_print_map()
 
 if __name__ == "__main__":
-    print(Player())
+    main()
