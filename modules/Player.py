@@ -51,6 +51,8 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
+from operator import itemgetter as ig
+from random import sample
 
 
 class Player(BasePlayer):
@@ -61,10 +63,12 @@ class Player(BasePlayer):
 
         # Set additional properties
         self.turn = 0
-        self.researched = {}
-        self.rumours = {}
-        self.inventory = {}
+        self.researched = {market:{produc:[amount, price]}}
+        self.rumours = {market:{product:price}}
+        self.inventory = {product:[amount, asset_cost]}
         self.goal_acheived = False  
+        # visited node {node: times_visited}
+        self.visited_node = defaultdict(int)
     
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
@@ -76,11 +80,14 @@ class Player(BasePlayer):
         - Pass turn
         '''
         # collect information from other player
-        
+        update_rumours(info)
+
         # check inventory
         result1 = check_inventory()
+
         # check if goal acheieved
         goal_acheived = check_goal(result1)
+
         # check if goal exist in any of any researched/rumoured markets
         if not goal_acheived:
 
@@ -91,20 +98,36 @@ class Player(BasePlayer):
             nextstepstring = nextstep(currentnode, togomarket)
 
             if currentnode != nextstepstring:
-                return (MOVE, nextstepstring)
+                go_to = self.move_to(currentnode,nextstepstring)
+                return (MOVE, go_to)
             # already at target market
             else:
-                # find out what we need to buy
-                buytuple = whattobuy(result1)
-                # buy
-                return (BUY, buytuple)
+                # check if market is researched
+                if check_if_researched(location) == True:
+                    # find out what we need to buy
+                    buytuple = whattobuy(result1)
+                    # buy
+                    return (BUY, buytuple)
+                else:
+                    return (RESEARCH, None)
 
         else:
             return (PASS, None)
- 
 
-
-        
+    def move_to(self, start, end):
+        '''Player moves to end node from start node.
+        If end node is not in start node's neighbours, move to random unvisited neighbour
+        '''
+        self.visited_node[currentnode] += 1
+        neighbours = check_neighbours(start)
+        if end not in neighbours:
+            min_visited = min(self.visited_node.items(), key=ig(1))
+            for neighbour in neighbours:
+                if self.visited_node.get(neighbour) and neighbour == min_visited[0]:
+                    return neighbour
+            return sample(neighbours)
+        else:
+            return end
 
     def __repr__(self):
         '''Define the representation of the Player as the state of 
