@@ -22,3 +22,6 @@ if __name__ == "__main__":
     g = Game([DummyPlayer()], verbose=True)
     res = g.run_game()
     print(res)
+
+
+# dummy change
