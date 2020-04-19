@@ -163,7 +163,7 @@ class Player(BasePlayer):
         # neighbouring nodes of the current node before we proceed.
         queue = deque([start])
         # Start looping through the map from the current node.
-        while True:
+        while queue:
             # Identify the currently assessed node
             current = queue.pop()
             # If the current node is the target node, we are done we need to backtrack to the start to create the path
