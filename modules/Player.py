@@ -47,7 +47,6 @@ Dream TODO List:
     - A*/BFS for optimisation of movement
 """
 
-
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
@@ -62,16 +61,19 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0               # how many turns taken in game:     0,1,..*
-        self.researched = {}        # market intel from other players:  {market:{produc:[amount, price]}}
-        self.rumours = {}           # market intel from other players:  {market:{produc:[amount, price]}}
-        self.inventory = {}         # record items in inventory:        {product:[amount, asset_cost]}
-        self.gold = 0               # gold.                             0,1,..*
-        self.score = 0              # score from inventory and gold:    0,1,..*
-        self.goal_acheived = False  # indicates whether goal acheived:  True/False
-        self.visited_node = defaultdict(int)  # location visit counts:  {location: times_visited}
-        
-    
+        self.turn = 0                           # how many turns taken in game:     0,1,..*
+        self.researched = {}                    # intel from research:              {market:{product:[amount, price]}}
+        self.rumours = {}                       # intel from other players:         {market:{product:[amount, price]}}
+        self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
+        self.gold = 0                           # gold:                             0,1,..*
+        self.score = 0                          # score from inventory and gold:    0,1,..*
+        self.goal_acheived = False              # indicates whether goal achieved:  True/False
+        self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
+        self.loc = ''                           # player's current location:        str(market location)
+
+    #TODO _________________________________________________________________________________
+    # Add logic for selling. Most of it will be reverse of buying so leave it for now.
+    #______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -82,87 +84,217 @@ class Player(BasePlayer):
         - Pass turn
         '''
 
+        # define the player location
+        self.loc = location
+
         # collect information from other player
-        collect_rumours(info)
+        self.collect_rumours(info)
 
-        # check if goal acheieved
-        goal_acheived = check_goal(self.inventory, self.goal)
+        # check if goal achieved
+        self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
-        # do nothing if goal achieved
-        if goal_acheived:
-            return (PASS, None)
+        # if goal acheived
+        if self.goal_acheived:
+            return Command.PASS, None
 
         # basic strategy if not yet acheive goal
         else:
+            # search for a market that player can afford
+            destination = self.search_market_buy(self.inventory, self.gold, self.goal)
 
-            # search for a market that player can afford (take into account of when no markiet information available)
-            destination = search_market(self.inventory, self.gold, self.goal)
-
-            # whats the next step to reach destination
-            next_step = get_next_step(location, destination)
+            # obtains the next step and the path to the target destination
+            # the target path will be required for some optimisation in future
+            next_step, target_path = self.get_next_step(destination)
 
             # take next step to reach destination if any
-            if next_step != None:
-                #go_to = self.move_to(location, destination)
-                return (MOVE, next_step)
+            if next_step:
+                return Command.MOVE, next_step
 
             # already at destination:
             else:
                 # reseach market if haven't
                 if not location in self.researched:
                     self.researched[location] = info
-                    return (RESEARCH, location)
+                    return Command.RESEARCH, location
                 
                 else:
-                    # find out what we need to buy:
-                    to_buy = purchase(self.inventory, self.gold, prices)
+                    # find out what we need to buy and proceed
+                    to_buy = self.purchase(self.inventory, self.gold, prices)
 
-                    return (BUY, to_buy)
-               
-                    
+                    return Command.BUY, to_buy
 
-    # check if goal acheived by comparing goal with inventory
-    def check_goal(inventory, goal):
+    #TODO ______________________________________________________________________________________ 
+    # Complete the functions below. Please add/remove additional arguments as you need.
+    # Think of possible test cases for each of them too.
+    # __________________________________________________________________________________________
+    def collect_rumours(self, info):
+        """Collect intel from other players at the same location, then store it in self.rumours.
+        Args:
+            info : { market : {product:price} }
+                    dictionary of information from other players
+            Output: None
+
+        """
+        pass
+
+
+    def check_goal(self, inventory, goal):
+        """Check if goal is acheived by comparing inventory and goal. 
+           Switch self.acheived_goal = True if acheived goal.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            Output: None
+        """
+
+        pass
+
+
+    def search_market(self, inventory, gold, location):
+        """Given current location, inventory, gold, and goal, what is the best market to buy from.
+           What market to choose if doesn't have any researched/rumoured information?
+           Feel free to improvise and document the details here.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            gold : int
+                    How many gold the player has currently.
+            Output: None
+        """
+        pass
+
+
+    def purchase(self, inventory, gold, prices):
+        """Return the item and anoubt to buy when player is at a destination market.
+           Update self inventory and gold too before returning.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            prices : {product : price}
+                    prices of item in the market.
+            Output: (product, amount)
+        """
         return None
 
-    # search for a market to go to
-    def search_market(self.inventory, self.gold, self.goal):
-        return None
 
-    # get next step (BFS)
-    def get_next_step(location, destination):
-        return None
+    def compute_score(self, inventory, gold, goal):
+        """Compute and return score.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            gold : int
+                    How many gold the player has currently.
+            Output: score (int)
+        """
+        pass
 
-    # select and purchase and item form market (update self inventory and gold)
-    # return (item, quantity) to buy
-    def purchase(inventory, gold, prices):
-        return None
 
-    # player moves. update self location and return that location.
-    #def move_to(self, start, end):
-        '''Player moves to end node from start node.
-        If end node is not in start node's neighbours, move to random unvisited neighbour
-        '''
-        self.visited_node[currentnode] += 1
-        neighbours = check_neighbours(start)
-        if end not in neighbours:
-            min_visited = min(self.visited_node.items(), key=ig(1))
-            for neighbour in neighbours:
-                if self.visited_node.get(neighbour) and neighbour == min_visited[0]:
-                    return neighbour
-            return sample(neighbours)
-        else:
-            return end
-
+    def get_next_step(self, target):
+        """Finds the fastest path by employing a breadth-first search algorithm.
+        Since all edges are currently unweighted, only simplified breadth-first
+        while storing each previous node is required
+        """
+        # TODO: need to update location before calling function
+        # TODO: This is not the best path, this is the path that takes the fewest turns.
+        # TODO: Update this with a check if the intermediary nodes are black or grey markets
+        # Set the starting location as the player's current location
+        start = self.loc
+        # Collect all the nodes in the given map
+        nodes = self.map.get_node_names()
+        assert target in nodes, "Target node not found in map"
+        # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
+        # All nodes will have a not None node except the starting node
+        # Example: None -> A -> B -> C :: Backtrack None <- A <- B <- C
+        previous = {node: None for node in nodes}
+        # Must only visit every node exactly once for a BFS
+        # Set current market as visited
+        visited = {node: False for node in nodes}
+        visited[start] = True
+        # Create a queue data structure for markets to visit. A queue is required for FIFO, we want to analyse all
+        # neighbouring nodes of the current node before we proceed.
+        queue = deque([start])
+        # Start looping through the map from the current node.
+        while queue:
+            # Identify the currently assessed node
+            current = queue.pop()
+            # If the current node is the target node, we are done we need to backtrack to the start to create the path
+            # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right.
+            # We want to return the path and the steps taken to reach the target node.
+            if current == target:
+                path = deque()
+                while current:
+                    path.appendleft(current)
+                    current = previous[current]
+                # path provides the nodes to traverse in order, so the next node is the best next step
+                return path[1], path
+            # Collect the neighbours of this market and iterate over them.
+            neighbours = self.map.get_neighbours(current)
+            for n in neighbours:
+                # If the neighbours have not been visited, add them to the queue.
+                # Set the current node as the previous node for all neighbours.
+                if not visited[n]:
+                    queue.appendleft(n)
+                    visited[n] = True
+                    previous[n] = current
+    #____________________________________________________________________________________________ 
+    #                                       END TODO
+    # ___________________________________________________________________________________________
 
 
     def __repr__(self):
-        '''Define the representation of the Player as the state of 
+        '''Define the representation of the Player as the state of
         current attributes.
         '''
         s = str(self.__dict__)
         return s
-        
+
+
+# Write a main function for testing
+def main():
+    import unittest
+    import random
+    from time import time
+    from Map import Map
+    import string
+
+    map_width = 200
+    map_height = 100
+    resolution_x = 2
+    resolution_y = 3
+
+    node_list = list(string.ascii_uppercase)[:10]
+    # keep a list of good seeds
+    good_seeds = [23624]
+    test_map = Map(node_list, map_width, map_height, resolution_x, resolution_y, seed=good_seeds[0])
+
+    print('map_data["node_positions"]\n')
+    test_map.pretty_print_node_positions()
+    print('map_data["node_graph"]\n')
+    test_map.pretty_print_node_graph()
+
+    test_map.pretty_print_map()
+
+    t1 = time()
+    p = Player()
+    p.set_map(test_map)
+    p.loc = 'A'
+    target = 'E'
+    next_step, path = p.get_next_step(target)
+    turns_req = len(path)
+    t2 = time()
+    interval = t2 - t1
+    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns.")
+    print(f"The next stpe on the path {path} is")
+    print(f"Time taken {interval} seconds")
+
 
 if __name__ == "__main__":
-    print(Player())
+    main()
