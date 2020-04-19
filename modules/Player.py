@@ -47,10 +47,11 @@ Dream TODO List:
     - A*/BFS for optimisation of movement
 """
 
-
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
+from operator import itemgetter as ig
+from random import sample
 
 
 class Player(BasePlayer):
@@ -60,12 +61,16 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0
-        self.researched = {}
-        self.rumours = {}
-        self.inventory = {}
-        self.loc = ''
-    
+        self.turn = 0  # how many turns taken in game:     0,1,..*
+        self.researched = {}  # market intel from other players:  {market:{produc:[amount, price]}}
+        self.rumours = {}  # market intel from other players:  {market:{produc:[amount, price]}}
+        self.inventory = {}  # record items in inventory:        {product:[amount, asset_cost]}
+        self.gold = 0  # gold.                             0,1,..*
+        self.score = 0  # score from inventory and gold:    0,1,..*
+        self.goal_acheived = False  # indicates whether goal acheived:  True/False
+        self.visited_node = defaultdict(int)  # location visit counts:  {location: times_visited}
+        self.loc = ''  # player's current location:        str(market location)
+
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -75,7 +80,80 @@ class Player(BasePlayer):
         - Move to adjacent market
         - Pass turn
         '''
-        return Command.PASS, None
+
+        # collect information from other player
+        self.collect_rumours(info)
+
+        # check if goal achieved
+        goal_acheived = self.check_goal(self.inventory, self.goal_acheived)
+
+        # do nothing if goal achieved
+        if goal_acheived:
+            return (Command.PASS, None)
+
+        # basic strategy if not yet acheive goal
+        else:
+
+            # search for a market that player can afford
+            destination = self.search_market(self.inventory, self.gold, self.goal)
+
+            # whats the next step to reach destination
+            next_step = self.get_next_step(location, destination)
+
+            # take next step to reach destination if any
+            if next_step != None:
+                go_to = self.move_to(location, destination)
+                return (Command.MOVE, go_to)
+
+            # already at destination:
+            else:
+                # reseach market if haven't
+                if not location in self.researched:
+                    self.researched[location] = info
+                    return (Command.RESEARCH, location)
+
+                else:
+                    # find out what we need to buy:
+                    to_buy = self.purchase(self.inventory, self.gold, prices)
+
+                    return (Command.BUY, to_buy)
+
+    # collect rumours
+    def collect_rumours(self, info):
+        pass
+
+    # check if goal acheived by comparing goal with inventory
+    def check_goal(self, inventory, goal=False):
+        pass
+
+    # search for a market to go to
+    def search_market(self, inventory, gold, goal):
+        pass
+
+    # get next step (BFS)
+    def get_next_step(self, location, destination):
+        pass
+
+    # select and purchase and item form market (update self inventory and gold)
+    # return (item, quantity) to buy
+    def purchase(self, inventory, gold, prices):
+        pass
+
+    # player moves. update self location and return that location.
+    def move_to(self, start, end):
+        '''Player moves to end node from start node.
+        If end node is not in start node's neighbours, move to random unvisited neighbour
+        '''
+        self.visited_node[currentnode] += 1
+        neighbours = check_neighbours(start)
+        if end not in neighbours:
+            min_visited = min(self.visited_node.items(), key=ig(1))
+            for neighbour in neighbours:
+                if self.visited_node.get(neighbour) and neighbour == min_visited[0]:
+                    return neighbour
+            return sample(neighbours)
+        else:
+            return end
 
     def __repr__(self):
         '''Define the representation of the Player as the state of 
@@ -97,7 +175,7 @@ class Player(BasePlayer):
 
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
-        assert(target in nodes, "Target node not found in map")
+        assert (target in nodes, "Target node not found in map")
 
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
@@ -142,7 +220,6 @@ class Player(BasePlayer):
 
 # Write a main function for testing
 def main():
-
     import unittest
     import random
     from time import time
