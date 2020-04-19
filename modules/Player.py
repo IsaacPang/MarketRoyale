@@ -150,7 +150,7 @@ class Player(BasePlayer):
         start = self.loc
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
-        assert (target in nodes, "Target node not found in map")
+        assert target in nodes, "Target node not found in map"
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
         # Example: None -> A -> B -> C :: Backtrack None <- A <- B <- C
