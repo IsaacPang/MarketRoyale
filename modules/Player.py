@@ -64,7 +64,7 @@ class Player(BasePlayer):
         self.researched = {}
         self.rumours = {}
         self.inventory = {}
-        self.location = ''
+        self.loc = ''
     
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
@@ -90,8 +90,10 @@ class Player(BasePlayer):
         while storing each previous node is required
         """
         # TODO: need to update location before calling function
+        # TODO: This is not the best path, this is the path with the fewest turns.
+        # TODO: Update this with a check if the intermediary nodes are black or grey markets
         # Set the starting location as the player's current location
-        start = self.location
+        start = self.loc
 
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
@@ -163,7 +165,11 @@ def main():
 
     test_map.pretty_print_map()
 
-    player = Player()
+    p = Player()
+    p.set_map(test_map)
+    p.loc = 'A'
+    target = 'E'
+    print(f"Player is at {p.loc}. Best path to {target} is {list(p.best_path(target))}")
 
 
 if __name__ == "__main__":
