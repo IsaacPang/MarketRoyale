@@ -61,15 +61,15 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0  # how many turns taken in game:     0,1,..*
-        self.researched = {}  # market intel from other players:  {market:{produc:[amount, price]}}
-        self.rumours = {}  # market intel from other players:  {market:{produc:[amount, price]}}
-        self.inventory = {}  # record items in inventory:        {product:[amount, asset_cost]}
-        self.gold = 0  # gold.                             0,1,..*
-        self.score = 0  # score from inventory and gold:    0,1,..*
-        self.goal_acheived = False  # indicates whether goal acheived:  True/False
-        self.visited_node = defaultdict(int)  # location visit counts:  {location: times_visited}
-        self.loc = ''  # player's current location:        str(market location)
+        self.turn = 0                           # how many turns taken in game:     0,1,..*
+        self.researched = {}                    # intel from research:              {market:{product:[amount, price]}}
+        self.rumours = {}                       # intel from other players:         {market:{product:[amount, price]}}
+        self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
+        self.gold = 0                           # gold:                             0,1,..*
+        self.score = 0                          # score from inventory and gold:    0,1,..*
+        self.goal_acheived = False              # indicates whether goal achieved:  True/False
+        self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
+        self.loc = ''                           # player's current location:        str(market location)
 
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
