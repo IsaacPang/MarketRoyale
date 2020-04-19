@@ -81,6 +81,9 @@ class Player(BasePlayer):
         - Pass turn
         '''
 
+        # define the player location
+        self.loc = location
+
         # collect information from other player
         self.collect_rumours(info)
 
@@ -97,26 +100,26 @@ class Player(BasePlayer):
             # search for a market that player can afford
             destination = self.search_market(self.inventory, self.gold, self.goal)
 
-            # whats the next step to reach destination
-            next_step = self.get_next_step(location, destination)
+            # obtains the next step and the path to the target destination
+            # the target path will be required for some optimisation in future
+            next_step, target_path = self.get_next_step(destination)
 
             # take next step to reach destination if any
-            if next_step != None:
-                go_to = self.move_to(location, destination)
-                return (Command.MOVE, go_to)
+            if next_step:
+                return Command.MOVE, next_step
 
             # already at destination:
             else:
                 # reseach market if haven't
                 if not location in self.researched:
                     self.researched[location] = info
-                    return (Command.RESEARCH, location)
+                    return Command.RESEARCH, location
 
                 else:
                     # find out what we need to buy:
                     to_buy = self.purchase(self.inventory, self.gold, prices)
 
-                    return (Command.BUY, to_buy)
+                    return Command.BUY, to_buy
 
     # collect rumours
     def collect_rumours(self, info):
@@ -130,72 +133,39 @@ class Player(BasePlayer):
     def search_market(self, inventory, gold, goal):
         pass
 
-    # get next step (BFS)
-    def get_next_step(self, location, destination):
-        pass
-
     # select and purchase and item form market (update self inventory and gold)
     # return (item, quantity) to buy
     def purchase(self, inventory, gold, prices):
         pass
 
-    # player moves. update self location and return that location.
-    def move_to(self, start, end):
-        '''Player moves to end node from start node.
-        If end node is not in start node's neighbours, move to random unvisited neighbour
-        '''
-        self.visited_node[currentnode] += 1
-        neighbours = check_neighbours(start)
-        if end not in neighbours:
-            min_visited = min(self.visited_node.items(), key=ig(1))
-            for neighbour in neighbours:
-                if self.visited_node.get(neighbour) and neighbour == min_visited[0]:
-                    return neighbour
-            return sample(neighbours)
-        else:
-            return end
-
-    def __repr__(self):
-        '''Define the representation of the Player as the state of 
-        current attributes.
-        '''
-        s = str(self.__dict__)
-        return s
-
-    def best_path(self, target):
+    def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
         Since all edges are currently unweighted, only simplified breadth-first
         while storing each previous node is required
         """
         # TODO: need to update location before calling function
-        # TODO: This is not the best path, this is the path with the fewest turns.
+        # TODO: This is not the best path, this is the path that takes the fewest turns.
         # TODO: Update this with a check if the intermediary nodes are black or grey markets
         # Set the starting location as the player's current location
         start = self.loc
-
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
         assert (target in nodes, "Target node not found in map")
-
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
         # Example: None -> A -> B -> C :: Backtrack None <- A <- B <- C
         previous = {node: None for node in nodes}
-
         # Must only visit every node exactly once for a BFS
         # Set current market as visited
         visited = {node: False for node in nodes}
         visited[start] = True
-
         # Create a queue data structure for markets to visit. A queue is required for FIFO, we want to analyse all
-        # neighbouring nodes of the current node before we proceed
+        # neighbouring nodes of the current node before we proceed.
         queue = deque([start])
-
-        # Start looping through the map from the current node
+        # Start looping through the map from the current node.
         while True:
             # Identify the currently assessed node
             current = queue.pop()
-
             # If the current node is the target node, we are done we need to backtrack to the start to create the path
             # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right.
             # We want to return the path and the steps taken to reach the target node.
@@ -204,18 +174,24 @@ class Player(BasePlayer):
                 while current:
                     path.appendleft(current)
                     current = previous[current]
-
-                return path, len(path)
-
-            # Collect the neighbours of this market and iterate over them
+                # path provides the nodes to traverse in order, so the next node is the best next step
+                return path[1], path
+            # Collect the neighbours of this market and iterate over them.
             neighbours = self.map.get_neighbours(current)
             for n in neighbours:
-                # if the neighbours have not been visited, add them to the queue.
+                # If the neighbours have not been visited, add them to the queue.
                 # Set the current node as the previous node for all neighbours.
                 if not visited[n]:
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
+
+    def __repr__(self):
+        '''Define the representation of the Player as the state of
+        current attributes.
+        '''
+        s = str(self.__dict__)
+        return s
 
 
 # Write a main function for testing
