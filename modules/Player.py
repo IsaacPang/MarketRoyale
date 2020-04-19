@@ -56,19 +56,21 @@ from random import sample
 
 
 class Player(BasePlayer):
-    def __init_(self):
+    def __init__(self):
         # Initialise the class without arguments
         # Inherit the parent init properties
         super().__init__()
 
         # Set additional properties
-        self.turn = 0
-        self.researched = {market:{produc:[amount, price]}}
-        self.rumours = {market:{product:price}}
-        self.inventory = {product:[amount, asset_cost]}
-        self.goal_acheived = False  
-        # visited node {node: times_visited}
-        self.visited_node = defaultdict(int)
+        self.turn = 0               # how many turns taken in game:     0,1,..*
+        self.researched = {}        # market intel from other players:  {market:{produc:[amount, price]}}
+        self.rumours = {}           # market intel from other players:  {market:{produc:[amount, price]}}
+        self.inventory = {}         # record items in inventory:        {product:[amount, asset_cost]}
+        self.gold = 0               # gold.                             0,1,..*
+        self.score = 0              # score from inventory and gold:    0,1,..*
+        self.goal_acheived = False  # indicates whether goal acheived:  True/False
+        self.visited_node = defaultdict(int)  # location visit counts:  {location: times_visited}
+        
     
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
@@ -79,41 +81,64 @@ class Player(BasePlayer):
         - Move to adjacent market
         - Pass turn
         '''
-        # collect information from other player
-        update_rumours(info)
 
-        # check inventory
-        result1 = check_inventory()
+        # collect information from other player
+        collect_rumours(info)
 
         # check if goal acheieved
-        goal_acheived = check_goal(result1)
+        goal_acheived = check_goal(self.inventory, self.goal_acheived)
 
-        # check if goal exist in any of any researched/rumoured markets
-        if not goal_acheived:
-
-            # search for a market that player can afford
-            togomarket = search_market(result1, gold)
-            
-            # next step
-            nextstepstring = nextstep(currentnode, togomarket)
-
-            if currentnode != nextstepstring:
-                go_to = self.move_to(currentnode,nextstepstring)
-                return (MOVE, go_to)
-            # already at target market
-            else:
-                # check if market is researched
-                if check_if_researched(location) == True:
-                    # find out what we need to buy
-                    buytuple = whattobuy(result1)
-                    # buy
-                    return (BUY, buytuple)
-                else:
-                    return (RESEARCH, None)
-
-        else:
+        # do nothing if goal achieved
+        if goal_acheived:
             return (PASS, None)
 
+        # basic strategy if not yet acheive goal
+        else:
+
+            # search for a market that player can afford
+            destination = search_market(self.inventory, self.gold, self.goal)
+
+            # whats the next step to reach destination
+            next_step = get_next_step(location, destination)
+
+            # take next step to reach destination if any
+            if next_step != None:
+                go_to = self.move_to(location, destination)
+                return (MOVE, go_to)
+
+            # already at destination:
+            else:
+                # reseach market if haven't
+                if not location in self.researched:
+                    self.researched[location] = info
+                    return (RESEARCH, location)
+                
+                else:
+                    # find out what we need to buy:
+                    to_buy = purchase(self.inventory, self.gold, prices)
+
+                    return (BUY, to_buy)
+               
+                    
+
+    # check if goal acheived by comparing goal with inventory
+    def check_goal(inventory, goal):
+        return None
+
+    # search for a market to go to
+    def search_market(self.inventory, self.gold, self.goal):
+        return None
+
+    # get next step (BFS)
+    def get_next_step(location, destination):
+        return None
+
+    # select and purchase and item form market (update self inventory and gold)
+    # return (item, quantity) to buy
+    def purchase(inventory, gold, prices):
+        return None
+
+    # player moves. update self location and return that location.
     def move_to(self, start, end):
         '''Player moves to end node from start node.
         If end node is not in start node's neighbours, move to random unvisited neighbour
@@ -128,6 +153,8 @@ class Player(BasePlayer):
             return sample(neighbours)
         else:
             return end
+
+
 
     def __repr__(self):
         '''Define the representation of the Player as the state of 
