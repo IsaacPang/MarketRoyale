@@ -86,7 +86,7 @@ class Player(BasePlayer):
         collect_rumours(info)
 
         # check if goal acheieved
-        goal_acheived = check_goal(self.inventory, self.goal_acheived)
+        goal_acheived = check_goal(self.inventory, self.goal)
 
         # do nothing if goal achieved
         if goal_acheived:
@@ -95,7 +95,7 @@ class Player(BasePlayer):
         # basic strategy if not yet acheive goal
         else:
 
-            # search for a market that player can afford
+            # search for a market that player can afford (take into account of when no markiet information available)
             destination = search_market(self.inventory, self.gold, self.goal)
 
             # whats the next step to reach destination
@@ -103,8 +103,8 @@ class Player(BasePlayer):
 
             # take next step to reach destination if any
             if next_step != None:
-                go_to = self.move_to(location, destination)
-                return (MOVE, go_to)
+                #go_to = self.move_to(location, destination)
+                return (MOVE, next_step)
 
             # already at destination:
             else:
@@ -139,7 +139,7 @@ class Player(BasePlayer):
         return None
 
     # player moves. update self location and return that location.
-    def move_to(self, start, end):
+    #def move_to(self, start, end):
         '''Player moves to end node from start node.
         If end node is not in start node's neighbours, move to random unvisited neighbour
         '''
