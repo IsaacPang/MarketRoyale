@@ -119,14 +119,15 @@ class Player(BasePlayer):
             current = queue.pop()
 
             # If the current node is the target node, we are done we need to backtrack to the start to create the path
-            # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right
+            # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right.
+            # We want to return the path and the steps taken to reach the target node.
             if current == target:
                 path = deque()
                 while current:
                     path.appendleft(current)
                     current = previous[current]
 
-                return path
+                return path, len(path)
 
             # Collect the neighbours of this market and iterate over them
             neighbours = self.map.get_neighbours(current)
@@ -165,11 +166,17 @@ def main():
 
     test_map.pretty_print_map()
 
+    t1 = time()
     p = Player()
     p.set_map(test_map)
     p.loc = 'A'
     target = 'E'
-    print(f"Player is at {p.loc}. Best path to {target} is {list(p.best_path(target))}")
+    path = list(p.best_path(target)[0])
+    turns_req = p.best_path(target)[1]
+    t2 = time()
+    interval = t2 - t1
+    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns. It is {path}")
+    print(f"Time taken {interval} seconds")
 
 
 if __name__ == "__main__":
