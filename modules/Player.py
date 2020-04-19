@@ -62,8 +62,8 @@ class Player(BasePlayer):
 
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
-        self.researched = {}                    # intel from research:              {market:{product:[amount, price]}}
-        self.rumours = {}                       # intel from other players:         {market:{product:[amount, price]}}
+        self.researched = []                    # researched markets:               [market1, market2..]
+        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
@@ -87,6 +87,9 @@ class Player(BasePlayer):
         # define the player location
         self.loc = location
 
+        # add information from current market
+        self.save_market_prices(self.market_prices, prices)
+
         # collect information from other player
         self.collect_rumours(info)
 
@@ -100,7 +103,7 @@ class Player(BasePlayer):
         # basic strategy if not yet acheive goal
         else:
             # search for a market that player can afford
-            destination = self.search_market_buy(self.inventory, self.gold, self.goal)
+            destination = self.search_market(self.inventory, self.gold, self.goal)
 
             # obtains the next step and the path to the target destination
             # the target path will be required for some optimisation in future
@@ -114,7 +117,7 @@ class Player(BasePlayer):
             else:
                 # reseach market if haven't
                 if not location in self.researched:
-                    self.researched[location] = info
+                    self.researched.append(location)
                     return Command.RESEARCH, location
                 
                 else:
@@ -127,13 +130,26 @@ class Player(BasePlayer):
     # Complete the functions below. Please add/remove additional arguments as you need.
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
-    def collect_rumours(self, info):
-        """Collect intel from other players at the same location, then store it in self.rumours.
+    def collect_rumours(self, market_prices, info):
+        """Collect intel from other players at the same location, then store it in self.market_prices.
         Args:
+            market prices : {market:{product:[amount, price]}}
+                    dictionary of market and products and price they sell.
             info : { market : {product:price} }
                     dictionary of information from other players
             Output: None
 
+        """
+        pass
+
+    def save_market_prices(self, market_prices, prices):
+        """Save current market prices information into self.market_prices.
+        Args:
+            market prices : {market:{product:[amount, price]}}
+                    dictionary of market and products and price they sell.
+            prices : {product : price}
+                    items and prices sold in current market.
+            Output: None
         """
         pass
 
