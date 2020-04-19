@@ -224,11 +224,12 @@ def main():
     p.set_map(test_map)
     p.loc = 'A'
     target = 'E'
-    path = list(p.best_path(target)[0])
-    turns_req = p.best_path(target)[1]
+    next_step, path = p.get_next_step(target)
+    turns_req = len(path)
     t2 = time()
     interval = t2 - t1
-    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns. It is {path}")
+    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns.")
+    print(f"The next stpe on the path {path} is")
     print(f"Time taken {interval} seconds")
 
 
