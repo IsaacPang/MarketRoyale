@@ -334,12 +334,12 @@ from Map import Map
 def suite():
     test_suite = unittest.TestSuite()
     test_suite.addTest(MapTestCase('test_central'))
-    test_suite.addTest(MapTestCase('test_move'))
-    test_suite.addTest(MapTestCase('test_stay'))
+    test_suite.addTest(MovementTestCase('test_move'))
+    test_suite.addTest(MovementTestCase('test_stay'))
     return test_suite
 
 
-# Creates a test case specifically for basic player movement.
+# Creates a test case class specifically for map identification.
 class MapTestCase(unittest.TestCase):
     # Tests if the output of a central market is correct.
     # In this test case, there is exactly one central market.
@@ -348,6 +348,9 @@ class MapTestCase(unittest.TestCase):
         p1.map = test_map()
         self.assertEqual(p1.central_market(), "V")
 
+
+# Creates a test case class specifically for basic player movement.
+class MovementTestCase(unittest.TestCase):
     # Tests if the next step is definitely within the neighbouring nodes.
     # Tests if the path length is correct.
     def test_move(self):
