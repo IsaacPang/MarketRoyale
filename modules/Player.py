@@ -290,15 +290,21 @@ class Player(BasePlayer):
 
         # To iterate only once over each node, the minimum distance is first
         # initialised as a maximum possible distance, i.e. the corner of the
-        # map.
+        # map. The shape of the circle is also a rectangle, equivalent to the
+        # map dimensions. Therefore, the true safest market must satisfy the
+        # map ratios as well.
         node_coords = self.map.map_data["node_positions"]
+        map_ratio = self.map.map_width / self.map.map_height
         min_dist = central_dist(self.map.map_width, self.map.map_height)
         for node, coord in node_coords.items():
-            # If the current minimum distance is greater than
+            # If the current minimum distance is greater than the distance of
+            # the current node to the map center, reassign. This must be done
+            # while keeping the angle of incident to the map center in mind
             current_dist = central_dist(coord[0], coord[1])
+            current_ratio = coord[0] / coord[1]
             # If more than 1 node is equidistant from the centre
             # The player does not care which one he goes to
-            if min_dist >= current_dist:
+            if min_dist >= current_dist and current_ratio <= map_ratio:
                 min_dist = current_dist
                 min_node = node
         return min_node
@@ -385,3 +391,4 @@ if __name__ == "__main__":
     p1.map = test_map()
     p1.loc = "A"
     print(p1.get_next_step("V"))
+    print(p1.central_market())
