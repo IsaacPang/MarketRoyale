@@ -51,6 +51,7 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
+import math
 
 
 class Player(BasePlayer):
@@ -273,14 +274,43 @@ class Player(BasePlayer):
                     visited[n] = True
                     previous[n] = current
 
+    def central_market(self, the_map):
+        """Function to determine which market is at the centre of the map
+        Player is meant to move to the central market toward the end of the game
+        """
+        # Obtain the Euclidean distance between two points by the formula
+        # sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
+        def central_dist(x, y):
+            # TODO: Ensure that the circle closes at midpoint
+            # TODO: Probably let Andrew know that the circle needs to surround
+            #       the geometric centre
+            # If the map corner is (0, 0), the map central is always as below
+            cx, cy = the_map.map_width / 2, the_map.map_height / 2
+            return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+
+        # To iterate only once over each node, the minimum distance is first
+        # initialised as a maximum possible distance, i.e. the corner of the
+        # map.
+        node_coords = the_map.map_data["node_positions"]
+        min_dist = central_dist(the_map.map_width, the_map.map_height)
+        for node, coord in node_coords.items():
+            # If the current minimum distance is greater than
+            current_dist = central_dist(coord[0], coord[1])
+            # If more than 1 node is equidistant from the centre
+            # The player does not care which one he goes to
+            if min_dist >= current_dist:
+                min_dist = current_dist
+                min_node = node
+        return min_node
+
     # ____________________________________________________________________________________________
     #                                       END TODO
     # ___________________________________________________________________________________________
 
     def __repr__(self):
-        '''Define the representation of the Player as the state of
+        """Define the representation of the Player as the state of
         current attributes.
-        '''
+        """
         s = str(self.__dict__)
         return s
 
@@ -305,9 +335,9 @@ def main():
     good_seeds = [23624]
     test_map = Map(node_list, map_width, map_height, resolution_x, resolution_y, seed=good_seeds[0])
 
-    print('map_data["node_positions"]\n')
+    print("map_data[\"node_positions\"]\n")
     test_map.pretty_print_node_positions()
-    print('map_data["node_graph"]\n')
+    print("map_data[\"node_graph\"]\n")
     test_map.pretty_print_node_graph()
 
     test_map.pretty_print_map()
