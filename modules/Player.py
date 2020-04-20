@@ -40,7 +40,8 @@ Authors: Syndicate 8 - MBusA2020 Module 2
              Grace Zhu           (grace.zhu@student.unimelb.edu.au)
 
 TODO List:
-    - Literally everything
+    - Refer to code comments
+    - Update docstrings
 
 Dream TODO List:
     - Machine Learning to predict where to go, maybe
@@ -62,8 +63,8 @@ class Player(BasePlayer):
 
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
-        self.researched = {}                    # intel from research:              {market:{product:[amount, price]}}
-        self.rumours = {}                       # intel from other players:         {market:{product:[amount, price]}}
+        self.researched = []                    # researched markets:               [market1, market2..]
+        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
@@ -71,6 +72,9 @@ class Player(BasePlayer):
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
+    # TODO _________________________________________________________________________________
+    # Add logic for selling. Most of it will be reverse of buying so leave it for now.
+    # ______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -84,19 +88,21 @@ class Player(BasePlayer):
         # define the player location
         self.loc = location
 
+        # add information from current market
+        self.save_market_prices(self.market_prices, prices)
+
         # collect information from other player
         self.collect_rumours(info)
 
         # check if goal achieved
-        goal_acheived = self.check_goal(self.inventory, self.goal_acheived)
+        self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
-        # do nothing if goal achieved
-        if goal_acheived:
-            return (Command.PASS, None)
+        # if goal acheived
+        if self.goal_acheived:
+            return Command.PASS, None
 
         # basic strategy if not yet acheive goal
         else:
-
             # search for a market that player can afford
             destination = self.search_market(self.inventory, self.gold, self.goal)
 
@@ -112,30 +118,94 @@ class Player(BasePlayer):
             else:
                 # reseach market if haven't
                 if not location in self.researched:
-                    self.researched[location] = info
+                    self.researched.append(location)
                     return Command.RESEARCH, location
 
                 else:
-                    # find out what we need to buy:
+                    # find out what we need to buy and proceed
                     to_buy = self.purchase(self.inventory, self.gold, prices)
 
                     return Command.BUY, to_buy
 
-    # collect rumours
-    def collect_rumours(self, info):
+    # TODO ______________________________________________________________________________________
+    # Complete the functions below. Please add/remove additional arguments as you need.
+    # Think of possible test cases for each of them too.
+    # __________________________________________________________________________________________
+    def collect_rumours(self, market_prices, info):
+        """Collect intel from other players at the same location, then store it in self.market_prices.
+        Args:
+            market prices : {market:{product:[amount, price]}}
+                    dictionary of market and products and price they sell.
+            info : { market : {product:price} }
+                    dictionary of information from other players
+        Output: None
+        """
         pass
 
-    # check if goal acheived by comparing goal with inventory
-    def check_goal(self, inventory, goal=False):
+    def save_market_prices(self, market_prices, prices):
+        """Save current market prices information into self.market_prices.
+        Args:
+            market prices : {market:{product:[amount, price]}}
+                    dictionary of market and products and price they sell.
+            prices : {product : price}
+                    items and prices sold in current market.
+        Output: None
+        """
         pass
 
-    # search for a market to go to
-    def search_market(self, inventory, gold, goal):
+    def check_goal(self, inventory, goal):
+        """Check if goal is acheived by comparing inventory and goal. 
+           Switch self.acheived_goal = True if acheived goal.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+        Output: None
+        """
+
         pass
 
-    # select and purchase and item form market (update self inventory and gold)
-    # return (item, quantity) to buy
+    def search_market(self, inventory, gold, location):
+        """Given current location, inventory, gold, and goal, what is the best market to buy from.
+           What market to choose if doesn't have any researched/rumoured information?
+           Feel free to improvise and document the details here.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            gold : int
+                    How many gold the player has currently.
+        Output: None
+        """
+        pass
+
     def purchase(self, inventory, gold, prices):
+        """Return the item and anoubt to buy when player is at a destination market.
+           Update self inventory and gold too before returning.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            prices : {product : price}
+                    prices of item in the market.
+        Output: (product, amount)
+        """
+        return None
+
+    def compute_score(self, inventory, gold, goal):
+        """Compute and return score.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            gold : int
+                    How many gold the player has currently.
+        Output: score (int)
+        """
         pass
 
     def get_next_step(self, target):
@@ -185,6 +255,10 @@ class Player(BasePlayer):
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
+
+    # ____________________________________________________________________________________________
+    #                                       END TODO
+    # ___________________________________________________________________________________________
 
     def __repr__(self):
         '''Define the representation of the Player as the state of
