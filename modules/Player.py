@@ -51,8 +51,6 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
-from operator import itemgetter as ig
-from random import sample
 
 
 class Player(BasePlayer):
@@ -68,7 +66,7 @@ class Player(BasePlayer):
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_acheived = False              # indicates whether goal achieved:  True/False
+        self.goal_achieved = False              # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
@@ -107,34 +105,36 @@ class Player(BasePlayer):
         # check if goal achieved
         self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
-        # if goal acheived
+        # if goal achieved, move to the market closest to the centre of the map
+        # Then do nothing
         if self.goal_acheived:
-            return Command.PASS, None
+            # invoke the function to find the central market
+            destination = self.central_market(self.map)
+            next_step, target_path = self.get_next_step(destination)
+            if next_step:
+                return Command.MOVE_TO, next_step
+            else:
+                return Command.PASS, None
 
         # basic strategy if not yet acheive goal
         else:
             # search for a market that player can afford
             destination = self.search_market(self.inventory, self.gold, self.goal)
-
             # obtains the next step and the path to the target destination
             # the target path will be required for some optimisation in future
             next_step, target_path = self.get_next_step(destination)
-
-            # take next step to reach destination if any
+            # If the function returns a next step, player must go to the next step.
             if next_step:
-                return Command.MOVE, next_step
-
-            # already at destination:
+                return Command.MOVE_TO, next_step
+            # if there is no next step, player is already at destination. Determine if research is required.
             else:
                 # reseach market if haven't
-                if not location in self.researched:
+                if location not in self.researched:
                     self.researched.append(location)
                     return Command.RESEARCH, location
-
                 else:
                     # find out what we need to buy and proceed
                     to_buy = self.purchase(self.inventory, self.gold, prices)
-
                     return Command.BUY, to_buy
 
     # TODO ______________________________________________________________________________________
@@ -254,8 +254,15 @@ class Player(BasePlayer):
                 while current:
                     path.appendleft(current)
                     current = previous[current]
-                # path provides the nodes to traverse in order, so the next node is the best next step
-                return path[1], path
+                # Path provides the nodes to traverse in order, so the next node is the best next step
+                # If the path is of length 1, the player is starting at the target node, so the function
+                # Returns None as the next step. Use an exception here instead of if statement
+                # for lower comparison overhead
+                try:
+                    adjacent_market = path[1]
+                except IndexError:
+                    adjacent_market = None
+                return adjacent_market, path
             # Collect the neighbours of this market and iterate over them.
             neighbours = self.map.get_neighbours(current)
             for n in neighbours:
@@ -278,10 +285,13 @@ class Player(BasePlayer):
         return s
 
 
-# Write a main function for testing
+# ========================= TESTS ===================================
+# TODO: Write tests for the functions using unittest paradigms
+# TODO: Create a test suite with a test runner from unit test
+# TODO: Ensure Map & Game are imported for testing
+# TODO: Replace the main function below
+
 def main():
-    import unittest
-    import random
     from time import time
     from Map import Map
     import string
