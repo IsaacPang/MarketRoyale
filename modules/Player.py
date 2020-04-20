@@ -76,14 +76,22 @@ class Player(BasePlayer):
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
     # ______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
-        '''Player takes a turn with (hopefully) informed choices.
+        """Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
         - Research current market
         - Buy from market
         - Sell to market
         - Move to adjacent market
         - Pass turn
-        '''
+        Args:
+            location (str): Current player location as a string
+            prices (dict): The market's current prices after turn order correction
+                           {product: (price, amount)}
+            info (dict): Prices of products from random markets from other players
+                         {market: {product: price}}
+            bm (list): A list of all nodes that are currently black markets
+            gm (list): A list of all nodes that are currently grey markets
+        """
 
         # define the player location
         self.loc = location
