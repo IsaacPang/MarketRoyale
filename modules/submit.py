@@ -1,3 +1,9 @@
+"""
+Generates a unique json file by using the inspect library
+getsource() function on Player module.
+TODO: change the team name
+TODO: add the socket function and a __main__ call
+"""
 import json
 import datetime
 from time import time

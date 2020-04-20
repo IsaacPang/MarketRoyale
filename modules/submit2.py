@@ -1,4 +1,9 @@
-
+"""
+Generates a unique json file by using the standard python
+library, with file.read()
+TODO: change the team name
+TODO: add the socket function and a __main__ call
+"""
 import json
 import datetime
 from time import time
