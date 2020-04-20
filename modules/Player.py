@@ -370,7 +370,7 @@ class MapTestCase(unittest.TestCase):
 
 
 # This function helps output the map for testing.
-# Allows the seed to be mutable.
+# Allows the size and seed to be mutable.
 def test_map(size=26, seed=23624):
     assert(type(size) == int)
     assert(1 <= size <= 26)
@@ -383,12 +383,19 @@ def test_map(size=26, seed=23624):
 
 
 if __name__ == "__main__":
+    # Print visual diagnostics
+    p1 = Player()
+    p1.map = test_map()
+    p1.loc = "A"
+    target = "V"
+    next_step, path = p1.get_next_step(target)
+    central_market = p1.central_market()
+    p1.map.pretty_print_map()
+    print(f"Starting at {p1.loc}, the next step toward {target} is {next_step}.")
+    print(f"The optimal path is {list(path)}. This takes {len(path)} turns.")
+    print(f"The central market is {central_market}")
+
     # Run tests.
     runner = unittest.TextTestRunner()
     runner.run(suite())
 
-    p1 = Player()
-    p1.map = test_map()
-    p1.loc = "A"
-    print(p1.get_next_step("V"))
-    print(p1.central_market())
