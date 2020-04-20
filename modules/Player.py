@@ -153,7 +153,7 @@ class Player(BasePlayer):
     def save_market_prices(self, market_prices, prices):
         """Save current market prices information into self.market_prices.
         Args:
-            market prices : {market:{product:[amount, price]}}
+            market prices : {market:{product:(amount, price)}}
                     dictionary of market and products and price they sell.
             prices : {product : price}
                     items and prices sold in current market.
