@@ -40,7 +40,8 @@ Authors: Syndicate 8 - MBusA2020 Module 2
              Grace Zhu           (grace.zhu@student.unimelb.edu.au)
 
 TODO List:
-    - Literally everything
+    - Refer to code comments
+    - Update docstrings
 
 Dream TODO List:
     - Machine Learning to predict where to go, maybe
@@ -71,9 +72,9 @@ class Player(BasePlayer):
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
-    #TODO _________________________________________________________________________________
+    # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
-    #______________________________________________________________________________________
+    # ______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
         '''Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -119,14 +120,14 @@ class Player(BasePlayer):
                 if not location in self.researched:
                     self.researched.append(location)
                     return Command.RESEARCH, location
-                
+
                 else:
                     # find out what we need to buy and proceed
                     to_buy = self.purchase(self.inventory, self.gold, prices)
 
                     return Command.BUY, to_buy
 
-    #TODO ______________________________________________________________________________________ 
+    # TODO ______________________________________________________________________________________
     # Complete the functions below. Please add/remove additional arguments as you need.
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
@@ -137,8 +138,7 @@ class Player(BasePlayer):
                     dictionary of market and products and price they sell.
             info : { market : {product:price} }
                     dictionary of information from other players
-            Output: None
-
+        Output: None
         """
         pass
 
@@ -149,10 +149,9 @@ class Player(BasePlayer):
                     dictionary of market and products and price they sell.
             prices : {product : price}
                     items and prices sold in current market.
-            Output: None
+        Output: None
         """
         pass
-
 
     def check_goal(self, inventory, goal):
         """Check if goal is acheived by comparing inventory and goal. 
@@ -162,11 +161,10 @@ class Player(BasePlayer):
                     dictionary of products in inventory.
             goal : {product : price}
                     dictionary of products required to acheive goal.
-            Output: None
+        Output: None
         """
 
         pass
-
 
     def search_market(self, inventory, gold, location):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
@@ -179,10 +177,9 @@ class Player(BasePlayer):
                     dictionary of products required to acheive goal.
             gold : int
                     How many gold the player has currently.
-            Output: None
+        Output: None
         """
         pass
-
 
     def purchase(self, inventory, gold, prices):
         """Return the item and anoubt to buy when player is at a destination market.
@@ -194,10 +191,9 @@ class Player(BasePlayer):
                     dictionary of products required to acheive goal.
             prices : {product : price}
                     prices of item in the market.
-            Output: (product, amount)
+        Output: (product, amount)
         """
         return None
-
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
@@ -208,10 +204,9 @@ class Player(BasePlayer):
                     dictionary of products required to acheive goal.
             gold : int
                     How many gold the player has currently.
-            Output: score (int)
+        Output: score (int)
         """
         pass
-
 
     def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
@@ -260,10 +255,10 @@ class Player(BasePlayer):
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
-    #____________________________________________________________________________________________ 
+
+    # ____________________________________________________________________________________________
     #                                       END TODO
     # ___________________________________________________________________________________________
-
 
     def __repr__(self):
         '''Define the representation of the Player as the state of
