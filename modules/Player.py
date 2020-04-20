@@ -267,14 +267,14 @@ class Player(BasePlayer):
             # Collect the neighbours of this market and iterate over them.
             neighbours = self.map.get_neighbours(current)
             for n in neighbours:
-                # If the neighbours have not been visited, add them to the queue.
+                # If the neighbours have not been visited, add them to the queue
                 # Set the current node as the previous node for all neighbours.
                 if not visited[n]:
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
 
-    def central_market(self, the_map):
+    def central_market(self):
         """Function to determine which market is at the centre of the map
         Player is meant to move to the central market toward the end of the game
         """
@@ -285,14 +285,14 @@ class Player(BasePlayer):
             # TODO: Probably let Andrew know that the circle needs to surround
             #       the geometric centre
             # If the map corner is (0, 0), the map central is always as below
-            cx, cy = the_map.map_width / 2, the_map.map_height / 2
+            cx, cy = self.map.map_width / 2, self.map.map_height / 2
             return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
 
         # To iterate only once over each node, the minimum distance is first
         # initialised as a maximum possible distance, i.e. the corner of the
         # map.
-        node_coords = the_map.map_data["node_positions"]
-        min_dist = central_dist(the_map.map_width, the_map.map_height)
+        node_coords = self.map.map_data["node_positions"]
+        min_dist = central_dist(self.map.map_width, self.map.map_height)
         for node, coord in node_coords.items():
             # If the current minimum distance is greater than
             current_dist = central_dist(coord[0], coord[1])
@@ -303,9 +303,9 @@ class Player(BasePlayer):
                 min_node = node
         return min_node
 
-    # ____________________________________________________________________________________________
-    #                                       END TODO
-    # ___________________________________________________________________________________________
+    # __________________________________________________________________________
+    #                              END TODO
+    # __________________________________________________________________________
 
     def __repr__(self):
         """Define the representation of the Player as the state of
@@ -316,45 +316,72 @@ class Player(BasePlayer):
 
 
 # ========================= TESTS ===================================
-# TODO: Write tests for the functions using unittest paradigms
-# TODO: Create a test suite with a test runner from unit test
 # TODO: Ensure Map & Game are imported for testing
-# TODO: Replace the main function below
-def main():
-    from time import time
-    from Map import Map
-    import string
+# TODO: Test cases need to be more organised with themes around test cases
 
-    map_width = 200
+import unittest
+import string
+from Map import Map
+
+
+# Define the test suite for all test cases.
+def suite():
+    test_suite = unittest.TestSuite()
+    test_suite.addTest(MapTestCase('test_central'))
+    test_suite.addTest(MapTestCase('test_move'))
+    test_suite.addTest(MapTestCase('test_stay'))
+    return test_suite
+
+
+# Creates a test case specifically for basic player movement.
+class MapTestCase(unittest.TestCase):
+    # Tests if the output of a central market is correct.
+    # In this test case, there is exactly one central market.
+    def test_central(self):
+        p1 = Player()
+        p1.map = test_map()
+        self.assertEqual(p1.central_market(), "V")
+
+    # Tests if the next step is definitely within the neighbouring nodes.
+    # Tests if the path length is correct.
+    def test_move(self):
+        p1 = Player()
+        p1.map = test_map()
+        p1.loc = "A"
+        next_step, path = p1.get_next_step("V")
+        self.assertTrue(next_step in p1.map.get_neighbours("A"))
+        self.assertEqual(len(path), 4)
+
+    # Tests if the next step is to stay put if the player arrives.
+    # Tests if the number of turns required is to stay still is 0.
+    def test_stay(self):
+        p1 = Player()
+        p1.map = test_map()
+        p1.loc = "A"
+        next_step, path = p1.get_next_step("A")
+        self.assertTrue(next_step is None)
+        self.assertEqual(len(path), 1)
+
+
+# This function helps output the map for testing.
+# Allows the seed to be mutable.
+def test_map(size=26, seed=23624):
+    assert(type(size) == int)
+    assert(1 <= size <= 26)
+    map_width = 200  # Dimensions of map
     map_height = 100
-    resolution_x = 2
-    resolution_y = 3
-
-    node_list = list(string.ascii_uppercase)[:10]
-    # keep a list of good seeds
-    good_seeds = [23624]
-    test_map = Map(node_list, map_width, map_height, resolution_x, resolution_y, seed=good_seeds[0])
-
-    print("map_data[\"node_positions\"]\n")
-    test_map.pretty_print_node_positions()
-    print("map_data[\"node_graph\"]\n")
-    test_map.pretty_print_node_graph()
-
-    test_map.pretty_print_map()
-
-    t1 = time()
-    p = Player()
-    p.set_map(test_map)
-    p.loc = 'A'
-    target = 'E'
-    next_step, path = p.get_next_step(target)
-    turns_req = len(path)
-    t2 = time()
-    interval = t2 - t1
-    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns.")
-    print(f"The next stpe on the path {path} is")
-    print(f"Time taken {interval} seconds")
+    res_x = 2  # Resolution to render the map at
+    res_y = 3
+    node_list = list(string.ascii_uppercase)[:26]
+    return Map(node_list, map_width, map_height, res_x, res_y, seed=seed)
 
 
 if __name__ == "__main__":
-    main()
+    # Run tests.
+    runner = unittest.TextTestRunner()
+    runner.run(suite())
+
+    p1 = Player()
+    p1.map = test_map()
+    p1.loc = "A"
+    print(p1.get_next_step("V"))
