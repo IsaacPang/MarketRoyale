@@ -91,6 +91,8 @@ class Player(BasePlayer):
                          {market: {product: price}}
             bm (list): A list of all nodes that are currently black markets
             gm (list): A list of all nodes that are currently grey markets
+        Output:
+            cmd (tup): A tuple of (Command.CMD, data)
         """
 
         # define the player location
