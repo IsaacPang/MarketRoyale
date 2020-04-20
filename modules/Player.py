@@ -365,7 +365,7 @@ class MapTestCase(unittest.TestCase):
         p1.map = test_map()
         p1.loc = "A"
         next_step, path = p1.get_next_step("A")
-        self.assertTrue(next_step is None)
+        self.assertIsNone(next_step)
         self.assertEqual(len(path), 1)
 
 
