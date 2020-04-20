@@ -1,14 +1,14 @@
 """
- __    __  ______  ______  __  __   ______  ______  
-/\ "-./  \/\  __ \/\  == \/\ \/ /  /\  ___\/\__  _\ 
-\ \ \-./\ \ \  __ \ \  __<\ \  _"-.\ \  __\\/_/\ \/ 
- \ \_\ \ \_\ \_\ \_\ \_\ \_\ \_\ \_\\ \_____\ \ \_\ 
-  \/_/  \/_/\/_/\/_/\/_/ /_/\/_/\/_/ \/_____/  \/_/ 
- ______  ______  __  __  ______  __      ______     
-/\  == \/\  __ \/\ \_\ \/\  __ \/\ \    /\  ___\    
-\ \  __<\ \ \/\ \ \____ \ \  __ \ \ \___\ \  __\    
- \ \_\ \_\ \_____\/\_____\ \_\ \_\ \_____\ \_____\  
-  \/_/ /_/\/_____/\/_____/\/_/\/_/\/_____/\/_____/  
+ __    __  ______  ______  __  __   ______  ______
+/\ "-./  \/\  __ \/\  == \/\ \/ /  /\  ___\/\__  _\
+\ \ \-./\ \ \  __ \ \  __<\ \  _"-.\ \  __\\/_/\ \/
+ \ \_\ \ \_\ \_\ \_\ \_\ \_\ \_\ \_\\ \_____\ \ \_\
+  \/_/  \/_/\/_/\/_/\/_/ /_/\/_/\/_/ \/_____/  \/_/
+ ______  ______  __  __  ______  __      ______
+/\  == \/\  __ \/\ \_\ \/\  __ \/\ \    /\  ___\
+\ \  __<\ \ \/\ \ \____ \ \  __ \ \ \___\ \  __\
+ \ \_\ \_\ \_____\/\_____\ \_\ \_\ \_____\ \_____\
+  \/_/ /_/\/_____/\/_____/\/_/\/_/\/_____/\/_____/
 
 
 Player class for the Market Royale game.
@@ -51,8 +51,7 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
-from operator import itemgetter as ig
-from random import sample
+import math
 
 
 class Player(BasePlayer):
@@ -68,7 +67,7 @@ class Player(BasePlayer):
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_acheived = False              # indicates whether goal achieved:  True/False
+        self.goal_achieved = False              # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
@@ -107,34 +106,36 @@ class Player(BasePlayer):
         # check if goal achieved
         self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
-        # if goal acheived
+        # if goal achieved, move to the market closest to the centre of the map
+        # Then do nothing
         if self.goal_acheived:
-            return Command.PASS, None
+            # invoke the function to find the central market
+            destination = self.central_market(self.map)
+            next_step, target_path = self.get_next_step(destination)
+            if next_step:
+                return Command.MOVE_TO, next_step
+            else:
+                return Command.PASS, None
 
         # basic strategy if not yet acheive goal
         else:
             # search for a market that player can afford
             destination = self.search_market(self.inventory, self.gold, self.goal)
-
             # obtains the next step and the path to the target destination
             # the target path will be required for some optimisation in future
             next_step, target_path = self.get_next_step(destination)
-
-            # take next step to reach destination if any
+            # If the function returns a next step, player must go to the next step.
             if next_step:
-                return Command.MOVE, next_step
-
-            # already at destination:
+                return Command.MOVE_TO, next_step
+            # if there is no next step, player is already at destination. Determine if research is required.
             else:
                 # reseach market if haven't
-                if not location in self.researched:
+                if location not in self.researched:
                     self.researched.append(location)
                     return Command.RESEARCH, location
-
                 else:
                     # find out what we need to buy and proceed
                     to_buy = self.purchase(self.inventory, self.gold, prices)
-
                     return Command.BUY, to_buy
 
     # TODO ______________________________________________________________________________________
@@ -164,7 +165,7 @@ class Player(BasePlayer):
         pass
 
     def check_goal(self, inventory, goal):
-        """Check if goal is acheived by comparing inventory and goal. 
+        """Check if goal is acheived by comparing inventory and goal.
            Switch self.acheived_goal = True if acheived goal.
         Args:
             inventory : {product : price}
@@ -254,68 +255,150 @@ class Player(BasePlayer):
                 while current:
                     path.appendleft(current)
                     current = previous[current]
-                # path provides the nodes to traverse in order, so the next node is the best next step
-                return path[1], path
+                # Path provides the nodes to traverse in order, so the next node is the best next step
+                # If the path is of length 1, the player is starting at the target node, so the function
+                # Returns None as the next step. Use an exception here instead of if statement
+                # for lower comparison overhead
+                try:
+                    adjacent_market = path[1]
+                except IndexError:
+                    adjacent_market = None
+                return adjacent_market, path
             # Collect the neighbours of this market and iterate over them.
             neighbours = self.map.get_neighbours(current)
             for n in neighbours:
-                # If the neighbours have not been visited, add them to the queue.
+                # If the neighbours have not been visited, add them to the queue
                 # Set the current node as the previous node for all neighbours.
                 if not visited[n]:
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
 
-    # ____________________________________________________________________________________________
-    #                                       END TODO
-    # ___________________________________________________________________________________________
+    def central_market(self):
+        """Function to determine which market is at the centre of the map
+        Player is meant to move to the central market toward the end of the game
+        """
+        # Obtain the Euclidean distance between two points by the formula
+        # sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
+        def central_dist(x, y):
+            # TODO: Ensure that the circle closes at midpoint
+            # TODO: Probably let Andrew know that the circle needs to surround
+            #       the geometric centre
+            # If the map corner is (0, 0), the map central is always as below
+            cx, cy = self.map.map_width / 2, self.map.map_height / 2
+            return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+
+        # To iterate only once over each node, the minimum distance is first
+        # initialised as a maximum possible distance, i.e. the corner of the
+        # map. The shape of the circle is also a rectangle, equivalent to the
+        # map dimensions. Therefore, the true safest market must satisfy the
+        # map ratios as well.
+        node_coords = self.map.map_data["node_positions"]
+        map_ratio = self.map.map_width / self.map.map_height
+        min_dist = central_dist(self.map.map_width, self.map.map_height)
+        for node, coord in node_coords.items():
+            # If the current minimum distance is greater than the distance of
+            # the current node to the map center, reassign. This must be done
+            # while keeping the angle of incident to the map center in mind
+            current_dist = central_dist(coord[0], coord[1])
+            current_ratio = coord[0] / coord[1]
+            # If more than 1 node is equidistant from the centre
+            # The player does not care which one he goes to
+            if min_dist >= current_dist and current_ratio <= map_ratio:
+                min_dist = current_dist
+                min_node = node
+        return min_node
+
+    # __________________________________________________________________________
+    #                              END TODO
+    # __________________________________________________________________________
 
     def __repr__(self):
-        '''Define the representation of the Player as the state of
+        """Define the representation of the Player as the state of
         current attributes.
-        '''
+        """
         s = str(self.__dict__)
         return s
 
 
-# Write a main function for testing
-def main():
-    import unittest
-    import random
-    from time import time
-    from Map import Map
-    import string
+# ========================= TESTS ===================================
+# TODO: Ensure Map & Game are imported for testing
+# TODO: Test cases need to be more organised with themes around test cases
 
-    map_width = 200
+import unittest
+import string
+from Map import Map
+
+
+# Define the test suite for all test cases.
+def suite():
+    test_suite = unittest.TestSuite()
+    test_suite.addTest(MapTestCase('test_central'))
+    test_suite.addTest(MovementTestCase('test_move'))
+    test_suite.addTest(MovementTestCase('test_stay'))
+    return test_suite
+
+
+# Creates a test case class specifically for map identification.
+class MapTestCase(unittest.TestCase):
+    # Tests if the output of a central market is correct.
+    # In this test case, there is exactly one central market.
+    def test_central(self):
+        p1 = Player()
+        p1.map = test_map()
+        self.assertEqual(p1.central_market(), "V")
+
+
+# Creates a test case class specifically for basic player movement.
+class MovementTestCase(unittest.TestCase):
+    # Tests if the next step is definitely within the neighbouring nodes.
+    # Tests if the path length is correct.
+    def test_move(self):
+        p1 = Player()
+        p1.map = test_map()
+        p1.loc = "A"
+        next_step, path = p1.get_next_step("V")
+        self.assertTrue(next_step in p1.map.get_neighbours("A"))
+        self.assertEqual(len(path), 4)
+
+    # Tests if the next step is to stay put if the player arrives.
+    # Tests if the number of turns required is to stay still is 0.
+    def test_stay(self):
+        p1 = Player()
+        p1.map = test_map()
+        p1.loc = "A"
+        next_step, path = p1.get_next_step("A")
+        self.assertIsNone(next_step)
+        self.assertEqual(len(path), 1)
+
+
+# This function helps output the map for testing.
+# Allows the size and seed to be mutable.
+def test_map(size=26, seed=23624):
+    assert(type(size) == int)
+    assert(1 <= size <= 26)
+    map_width = 200  # Dimensions of map
     map_height = 100
-    resolution_x = 2
-    resolution_y = 3
-
-    node_list = list(string.ascii_uppercase)[:10]
-    # keep a list of good seeds
-    good_seeds = [23624]
-    test_map = Map(node_list, map_width, map_height, resolution_x, resolution_y, seed=good_seeds[0])
-
-    print('map_data["node_positions"]\n')
-    test_map.pretty_print_node_positions()
-    print('map_data["node_graph"]\n')
-    test_map.pretty_print_node_graph()
-
-    test_map.pretty_print_map()
-
-    t1 = time()
-    p = Player()
-    p.set_map(test_map)
-    p.loc = 'A'
-    target = 'E'
-    next_step, path = p.get_next_step(target)
-    turns_req = len(path)
-    t2 = time()
-    interval = t2 - t1
-    print(f"Player is at {p.loc}. The quickest path to {target} takes {turns_req} turns.")
-    print(f"The next stpe on the path {path} is")
-    print(f"Time taken {interval} seconds")
+    res_x = 2  # Resolution to render the map at
+    res_y = 3
+    node_list = list(string.ascii_uppercase)[:26]
+    return Map(node_list, map_width, map_height, res_x, res_y, seed=seed)
 
 
 if __name__ == "__main__":
-    main()
+    # Print visual diagnostics
+    p1 = Player()
+    p1.map = test_map()
+    p1.loc = "A"
+    target = "V"
+    next_step, path = p1.get_next_step(target)
+    central_market = p1.central_market()
+    p1.map.pretty_print_map()
+    print(f"Starting at {p1.loc}, the next step toward {target} is {next_step}.")
+    print(f"The optimal path is {list(path)}. This takes {len(path)} turns.")
+    print(f"The central market is {central_market}")
+
+    # Run tests.
+    runner = unittest.TextTestRunner()
+    runner.run(suite())
+
