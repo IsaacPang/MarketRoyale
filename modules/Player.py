@@ -285,12 +285,6 @@ class Player(BasePlayer):
         return s
 
 
-# ========================= TESTS ===================================
-# TODO: Write tests for the functions using unittest paradigms
-# TODO: Create a test suite with a test runner from unit test
-# TODO: Ensure Map & Game are imported for testing
-# TODO: Replace the main function below
-
 def main():
     from time import time
     from Map import Map
