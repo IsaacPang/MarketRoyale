@@ -121,13 +121,15 @@ class Player(BasePlayer):
         else:
             # search for a market that player can afford
             destination = self.search_market(self.inventory, self.gold, self.goal)
+
             # obtains the next step and the path to the target destination
             # the target path will be required for some optimisation in future
             next_step, target_path = self.get_next_step(destination)
             # If the function returns a next step, player must go to the next step.
+            # Otherwise, the player is already at the destination. Determine if research is required.
             if next_step:
                 return Command.MOVE_TO, next_step
-            # if there is no next step, player is already at destination. Determine if research is required.
+
             else:
                 # reseach market if haven't
                 if location not in self.researched:
@@ -221,32 +223,39 @@ class Player(BasePlayer):
 
     def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
-        Since all edges are currently unweighted, only simplified breadth-first
+        Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
         # TODO: need to update location before calling function
         # TODO: This is not the best path, this is the path that takes the fewest turns.
         # TODO: Update this with a check if the intermediary nodes are black or grey markets
+
         # Set the starting location as the player's current location
         start = self.loc
+
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
         assert target in nodes, "Target node not found in map"
+
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
         # Example: None -> A -> B -> C :: Backtrack None <- A <- B <- C
         previous = {node: None for node in nodes}
+
         # Must only visit every node exactly once for a BFS
         # Set current market as visited
         visited = {node: False for node in nodes}
         visited[start] = True
+
         # Create a queue data structure for markets to visit. A queue is required for FIFO, we want to analyse all
         # neighbouring nodes of the current node before we proceed.
         queue = deque([start])
+
         # Start looping through the map from the current node.
+        # Identify the currently assessed node by popping the right of the queue
         while queue:
-            # Identify the currently assessed node
             current = queue.pop()
+
             # If the current node is the target node, we are done we need to backtrack to the start to create the path
             # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right.
             # We want to return the path and the steps taken to reach the target node.
@@ -255,6 +264,7 @@ class Player(BasePlayer):
                 while current:
                     path.appendleft(current)
                     current = previous[current]
+
                 # Path provides the nodes to traverse in order, so the next node is the best next step
                 # If the path is of length 1, the player is starting at the target node, so the function
                 # Returns None as the next step. Use an exception here instead of if statement
@@ -264,11 +274,12 @@ class Player(BasePlayer):
                 except IndexError:
                     adjacent_market = None
                 return adjacent_market, path
+
             # Collect the neighbours of this market and iterate over them.
+            # If the neighbours have not been visited, add them to the queue
+            # Set the current node as the previous node for all neighbours.
             neighbours = self.map.get_neighbours(current)
             for n in neighbours:
-                # If the neighbours have not been visited, add them to the queue
-                # Set the current node as the previous node for all neighbours.
                 if not visited[n]:
                     queue.appendleft(n)
                     visited[n] = True
@@ -284,6 +295,7 @@ class Player(BasePlayer):
             # TODO: Ensure that the circle closes at midpoint
             # TODO: Probably let Andrew know that the circle needs to surround
             #       the geometric centre
+
             # If the map corner is (0, 0), the map central is always as below
             cx, cy = self.map.map_width / 2, self.map.map_height / 2
             return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
@@ -297,16 +309,19 @@ class Player(BasePlayer):
         map_ratio = self.map.map_width / self.map.map_height
         min_dist = central_dist(self.map.map_width, self.map.map_height)
         for node, coord in node_coords.items():
+
             # If the current minimum distance is greater than the distance of
             # the current node to the map center, reassign. This must be done
             # while keeping the angle of incident to the map center in mind
             current_dist = central_dist(coord[0], coord[1])
             current_ratio = coord[0] / coord[1]
+
             # If more than 1 node is equidistant from the centre
             # The player does not care which one he goes to
             if min_dist >= current_dist and current_ratio <= map_ratio:
                 min_dist = current_dist
                 min_node = node
+
         return min_node
 
     # __________________________________________________________________________
