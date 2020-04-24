@@ -51,6 +51,7 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
+import random
 import math
 
 
@@ -62,7 +63,7 @@ class Player(BasePlayer):
 
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
-        self.researched = []                    # researched markets:               [market1, market2..]
+        self.researched = set()                 # researched markets:               set({market1, market2..})
         self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
@@ -70,6 +71,10 @@ class Player(BasePlayer):
         self.goal_achieved = False              # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
+        self.bonus = 10000
+        self.ctr = ''
+        self.target_loc = ''
+
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
@@ -93,6 +98,8 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A tuple of (Command.CMD, data)
         """
+        # Increase turn counter
+        self.turn += 1
 
         # define the player location
         self.loc = location
@@ -107,60 +114,101 @@ class Player(BasePlayer):
         self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
         # Determine current strategy
-        # current_strategy = self.get_strategy(self.turn)
+        cmd = self.get_strategy(self.turn, info, bm, gm)
 
-        # if goal achieved, move to the market closest to the centre of the map
-        # Then do nothing
-        if self.goal_acheived:
-            # invoke the function to find the central market
-            destination = self.central_market(self.map)
-            next_step, target_path = self.get_next_step(destination)
-            if next_step:
-                return Command.MOVE_TO, next_step
-            else:
-                return Command.PASS, None
+        return cmd
 
-        # basic strategy if not yet acheive goal
-        else:
-            # search for a market that player can afford
-            destination = self.search_market(self.inventory, self.gold, self.goal)
-
-            # obtains the next step and the path to the target destination
-            # the target path will be required for some optimisation in future
-            next_step, target_path = self.get_next_step(destination)
-            # If the function returns a next step, player must go to the next step.
-            # Otherwise, the player is already at the destination. Determine if research is required.
-            if next_step:
-                return Command.MOVE_TO, next_step
-
-            else:
-                # reseach market if haven't
-                if location not in self.researched:
-                    self.researched.append(location)
-                    return Command.RESEARCH, location
-                else:
-                    # find out what we need to buy and proceed
-                    to_buy = self.purchase(self.inventory, self.gold, prices)
-                    return Command.BUY, to_buy
+        # # if goal achieved, move to the market closest to the centre of the map
+        # # Then do nothing
+        # if self.goal_acheived:
+        #     # invoke the function to find the central market
+        #     destination = self.central_market(self.map)
+        #     next_step, target_path = self.get_next_step(destination)
+        #     if next_step:
+        #         return Command.MOVE_TO, next_step
+        #     else:
+        #         return Command.PASS, None
+        #
+        # # basic strategy if not yet acheive goal
+        # else:
+        #     # search for a market that player can afford
+        #     destination = self.search_market(self.inventory, self.gold, self.goal)
+        #
+        #     # obtains the next step and the path to the target destination
+        #     # the target path will be required for some optimisation in future
+        #     next_step, target_path = self.get_next_step(destination)
+        #     # If the function returns a next step, player must go to the next step.
+        #     # Otherwise, the player is already at the destination. Determine if research is required.
+        #     if next_step:
+        #         return Command.MOVE_TO, next_step
+        #
+        #     else:
+        #         # reseach market if haven't
+        #         if location not in self.researched:
+        #             self.researched.append(location)
+        #             return Command.RESEARCH, location
+        #         else:
+        #             # find out what we need to buy and proceed
+        #             to_buy = self.purchase(self.inventory, self.gold, prices)
+        #             return Command.BUY, to_buy
 
     # TODO ______________________________________________________________________________________
     # Complete the functions below. Please add/remove additional arguments as you need.
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
 
-    # def get_strategy(self, turn):
-    #     """Returns a function that dictates the player's current strategy"""
-    #     if turn == 1:
-    #         return self.first_turn
-    #
-    #     else:
-    #         return self.pass_turn
-    #
-    #     # if self.goal_achieved:
-    #     #     return
-    #
-    # def first_turn(self):
-    #     pass
+    def get_strategy(self, turn, p_info, bm_list, gm_list):
+        """Returns a function that dictates the player's current strategy
+        Args:
+            turn (int): The current turn
+            p_info (dict): Information from other players passed from take_turn
+            bm_list (list): List of black markets passed from take_turn
+            gm_list (list): List of grey markets passed from take_turn
+        Output:
+            cmd (tup): A tuple of Command.CMD, data, output by children functions
+        """
+        if turn == 1:
+            return self.first_turn()
+
+        else:
+            return Command.PASS, None
+
+        # if self.goal_achieved:
+        #     return
+
+    def first_turn(self, bm, gm):
+        """The set of instructions on the first turn of the player.
+        The player must get a sense of the map by following these steps.
+        1. Store the central market on the map.
+        2. Set the furthest node from the central market as target node.
+        3. Find the fastest path to the target.
+        4. Set the next node as the next step.
+        5. If the current location is a terminal node, switch to research strat.
+        Args:
+            bm (list): Current list of black markets
+            gm (list): Current list of grey markets
+        Output:
+            cmd (tup): A tuple of (Command.CMD, data)
+        """
+        self.ctr, distances = central_market()
+        target = max(distances, key=distances.get)
+        # TODO: There could be grey markets in the first turn, this needs to capture that
+        if self.ctr == target:
+            # TODO: Build in a check for grey/black in research_turn()
+            self.target_loc = target
+            return self.research_turn()
+        else:
+            next_step = self.get_next_step(target)[0]
+            ns_neighbours = self.map.get_neighbours(next_step)
+
+            while next_step in (bm + gm) and ns_neighbours:
+                next_step = neighbours.pop()
+
+
+        pass
+
+
+
 
     def collect_rumours(self, market_prices, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
@@ -323,16 +371,17 @@ class Player(BasePlayer):
         # map. The shape of the circle is also a rectangle, equivalent to the
         # map dimensions. Therefore, the true safest market must satisfy the
         # map ratios as well.
+        # If the current minimum distance is greater than the distance of
+        # the current node to the map center, reassign. This must be done
+        # while keeping the angle of incident to the map center in mind
         node_coords = self.map.map_data["node_positions"]
         map_ratio = self.map.map_width / self.map.map_height
         min_dist = central_dist(self.map.map_width, self.map.map_height)
+        distance_dict = dict()
         for node, coord in node_coords.items():
-
-            # If the current minimum distance is greater than the distance of
-            # the current node to the map center, reassign. This must be done
-            # while keeping the angle of incident to the map center in mind
             current_dist = central_dist(coord[0], coord[1])
             current_ratio = coord[0] / coord[1]
+            distance_dict[node] = current_dist
 
             # If more than 1 node is equidistant from the centre
             # The player does not care which one he goes to
@@ -340,7 +389,7 @@ class Player(BasePlayer):
                 min_dist = current_dist
                 min_node = node
 
-        return min_node
+        return min_node, distance_dict
 
     # __________________________________________________________________________
     #                              END TODO
