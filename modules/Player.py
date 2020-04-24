@@ -106,6 +106,9 @@ class Player(BasePlayer):
         # check if goal achieved
         self.goal_acheived = self.check_goal(self.inventory, self.goal)
 
+        # Determine current strategy
+        # current_strategy = self.get_strategy(self.turn)
+
         # if goal achieved, move to the market closest to the centre of the map
         # Then do nothing
         if self.goal_acheived:
@@ -144,6 +147,21 @@ class Player(BasePlayer):
     # Complete the functions below. Please add/remove additional arguments as you need.
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
+
+    # def get_strategy(self, turn):
+    #     """Returns a function that dictates the player's current strategy"""
+    #     if turn == 1:
+    #         return self.first_turn
+    #
+    #     else:
+    #         return self.pass_turn
+    #
+    #     # if self.goal_achieved:
+    #     #     return
+    #
+    # def first_turn(self):
+    #     pass
+
     def collect_rumours(self, market_prices, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
         Args:
