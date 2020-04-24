@@ -67,7 +67,7 @@ class Player(BasePlayer):
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False              # indicates whether goal achieved:  True/False
+        self.goal_achieved = True              # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
@@ -98,7 +98,8 @@ class Player(BasePlayer):
         self.loc = location
 
         # add information from current market
-        self.save_market_prices(self.market_prices, prices)
+        # add self.loc to identify which market info we are looking for
+        self.save_market_prices(self.market_prices, self.loc, prices)
 
         # collect information from other player
         self.collect_rumours(info)
@@ -151,9 +152,12 @@ class Player(BasePlayer):
                     dictionary of information from other players
         Output: None
         """
-        pass
+        for market, information info.items():
+            market_prices[market] = {information[0]: information[1]}
 
-    def save_market_prices(self, market_prices, prices):
+        return None
+
+    def save_market_prices(self, market_prices, market, prices):
         """Save current market prices information into self.market_prices.
         Args:
             market prices : {market:{product:(amount, price)}}
@@ -162,7 +166,8 @@ class Player(BasePlayer):
                     items and prices sold in current market.
         Output: None
         """
-        pass
+        market_prices[market] = Market.get_prices()
+        return None
 
     def check_goal(self, inventory, goal):
         """Check if goal is acheived by comparing inventory and goal.
@@ -174,8 +179,10 @@ class Player(BasePlayer):
                     dictionary of products required to acheive goal.
         Output: None
         """
-
-        pass
+        for prod, amount in self.goal.items():
+            if self.inventory[prod] < amount:
+                self.goal_achieved = False
+        return None
 
     def search_market(self, inventory, gold, location):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
