@@ -152,7 +152,7 @@ class Player(BasePlayer):
                     dictionary of information from other players
         Output: None
         """
-        for market, information info.items():
+        for market, information in info.items():
             market_prices[market] = {information[0]: information[1]}
         return None
 
