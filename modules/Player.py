@@ -101,7 +101,7 @@ class Player(BasePlayer):
         # add self.loc to identify which market info we are looking for
         self.save_market_prices(self.market_prices, self.loc, prices)
 
-        # collect information from other player
+        # collect information from other player #where to get info??
         self.collect_rumours(info)
 
         # check if goal achieved
