@@ -202,26 +202,23 @@ class Player(BasePlayer):
         # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
-        maxprice=math.inf
-        initial_name=''
+        maxprice = math.inf
+        initial_name = ''
         #get the product name which has not reached the goal
-        possible_targets={product: [initial_name, maxprice] for product, amount in self.goal.items() if inventory[product][0]<amount}
+        possible_targets = {product: [initial_name, maxprice]
+                            for product, amount in self.goal.items()
+                            if inventory[product][0] < amount}
         for market, info in self.market_prices:
             if (market not in bm) and (market not in gm):    #check if in bm or gm
                 for product in info.keys():
-                    if (product in self.goal.keys()) and (info[product][0]<possible_targets[product][1]):
-                        possible_targets[product]=[market, info[product][0]]
+                    if (product in self.goal.keys()) and (info[product][0] < possible_targets[product][1]):
+                        possible_targets[product] = [market, info[product][0]]
         # calculate the distance
-        dist_for_target={market:len(self.get_next_step(self.loc, market)[1]) for market in possible_targets.values()}
+        dist_to_target = {market: len(self.get_next_step(market)[1]) for market in possible_targets.values()}
         # find the market not in bm or gm
-        min_dist = min(dist_for_target.values())
-        final_target=[k for k, v in dist_for_target.items() if v == min_val]
-        return final_target[0]
-
-
-
-
-
+        # min_val = min(dist_to_target.values())
+        # final_target = [k for k, v in dist_to_target.items() if v == min_val]
+        return min(dist_to_target, key=dist_to_target.get)
 
     def purchase(self, inventory, gold, prices):
         """Return the item and anoubt to buy when player is at a destination market.
