@@ -186,7 +186,7 @@ class Player(BasePlayer):
         return None
 
 
-    def search_market(self, inventory, gold, location):
+    def search_market(self, inventory, location, bm, gm):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
@@ -202,18 +202,17 @@ class Player(BasePlayer):
         # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
-        maxprice=10000
-        initial_name='market'
+        maxprice=math.inf
+        initial_name=''
         #get the product name which has not reached the goal
         possible_targets={product: [initial_name, maxprice] for product, amount in self.goal.items() if inventory[product][0]<amount}
-        self.markets = {node: Market() for node in self.map.get_node_names()}
-        for market, info in market_prices:
-            if (market not in self.bm) and (market not in self.gm):    #check if if bm or gm
+        for market, info in self.market_prices:
+            if (market not in bm) and (market not in gm):    #check if in bm or gm
                 for product in info.keys():
                     if (product in self.goal.keys()) and (info[product][0]<possible_targets[product][1]):
                         possible_targets[product]=[market, info[product][0]]
         # calculate the distance
-        dist_for_target={market:len(get_next_step(self.loc, market)[1]) for market in possible_targets.values()}
+        dist_for_target={market:len(self.get_next_step(self.loc, market)[1]) for market in possible_targets.values()}
         # find the market not in bm or gm
         min_dist = min(dist_for_target.values())
         final_target=[k for k, v in dist_for_target.items() if v == min_val]
