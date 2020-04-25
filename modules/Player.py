@@ -62,15 +62,15 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0                           # how many turns taken in game:     0,1,..*
-        self.researched = set()                 # researched markets:               set({market1, market2..})
-        self.market_prices = {}                 # market prices from self/players:  {market:{product:[price, amount]}}
-        self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
-        self.gold = 0                           # gold:                             0,1,..*
-        self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False              # indicates whether goal achieved:  True/False
-        self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
-        self.loc = ''                           # player's current location:        str(market location)
+        self.turn = 0                               # how many turns taken in game:     0,1,..*
+        self.researched = set()                     # researched markets:               set({market1, market2..})
+        self.market_prices = {}                     # market prices from self/players:  {market:{product:[price, amount]}}
+        self.inventory = defaultdict(lambda: (0, 0))# record items in inventory:        {product:[amount, asset_cost]}
+        self.gold = 0                               # gold:                             0,1,..*
+        self.score = 0                              # score from inventory and gold:    0,1,..*
+        self.goal_achieved = False                  # indicates whether goal achieved:  True/False
+        self.visited_node = defaultdict(int)        # location visit counts:            {location: times_visited}
+        self.loc = ''                               # player's current location:        str(market location)
         self.bonus = 10000
         self.ctr = ''
         self.target_loc = ''
@@ -264,18 +264,16 @@ class Player(BasePlayer):
         self.goal_achieved = True
         return None
 
-    def search_market(self, inventory, bm, gm):
+    def search_market(self, bm, gm):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
         Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
-            goal : {product : price}
-                    dictionary of products required to acheive goal.
-            gold : int
-                    How many gold the player has currently.
-        Output: None
+            bm (list): list of current black markets
+            gm (list): list of current grey markets
+        Output:
+            target_market (str): returns the target market from search. If all information on markets
+                                 are black, returns None
         """
         # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
@@ -285,20 +283,26 @@ class Player(BasePlayer):
         # get the product name which has not reached the goal
         possible_targets = {product: [initial_name, max_price]
                             for product, amount in self.goal.items()
-                            if inventory[product][0] < amount}
-        for market, info in self.market_prices:
+                            if self.inventory[product][0] < amount}
+        for market, info in self.market_prices.items():
             # check if markets are white
-            if (market not in bm) and (market not in gm):
+            if market not in bm + gm:
                 for product in info.keys():
-                    if (product in self.goal.keys()) and (info[product][0] < possible_targets[product][1]):
-                        possible_targets[product] = [market, info[product][0]]
+                    market_price = info[product][0]
+                    min_price = possible_targets[product][1]
+                    if (product in self.goal.keys()) and (market_price < min_price):
+                        possible_targets[product] = [market, market_price]
         # calculate the distances to these markets
-        dist_to_target = {market: len(self.get_next_step(market)[1]) for market in possible_targets.values()}
+        dist_to_target = {market: len(self.get_next_step(market)[1])
+                          for market, price in possible_targets.values()}
         # find the closest white market to achieve the goal
+        # TODO: if returns none, logic is required to find more markets and research
         if dist_to_target:
-            return min(dist_to_target, key=dist_to_target.get)
+            target_market = min(dist_to_target, key=dist_to_target.get)
         else:
-            return None
+            target_market = None
+
+        return target_market
 
     def purchase(self, inventory, gold, prices):
         """Return the item and anoubt to buy when player is at a destination market.
@@ -462,6 +466,7 @@ def suite():
 
     # Map testing
     test_suite.addTest(MapTestCase('test_central'))
+    test_suite.addTest(MapTestCase('test_search_market'))
 
     # Movement testing
     test_suite.addTest(MovementTestCase('test_move'))
@@ -490,7 +495,10 @@ class MapTestCase(unittest.TestCase):
     def test_search_market(self):
         p = Player()
         p.map = test_static_map()
+        p.loc = "E"
         prod = ["Food", "Electronics", "Social", "Hardware"]
+        goal = dict(zip(prod, [5]*len(prod)))
+        p.set_goal(goal)
         nodes = p.map.get_node_names()
         temp = list(zip(cycle(prod), map(list, enumerate(range(len(prod) * len(nodes))))))
         temp2 = []
@@ -507,7 +515,8 @@ class MapTestCase(unittest.TestCase):
         #        'Social': [6, 6],
         #        'Hardware': [7, 7]}}...
         # test when inventory be empty with no bm and gm
-        p.search_market(p.inventory, bm=[], gm=[])
+        target = p.search_market(bm=[], gm=[])
+        self.assertEqual(target, "A")
 
 
 # Creates a test case class specifically for basic player movement.
@@ -645,7 +654,8 @@ def test_static_map():
     node_graph = {'A': {'B', 'C', 'D', 'E'},
                   'B': {'A', 'C', 'E'},
                   'C': {'A', 'B', 'D'},
-                  'D': {'A', 'C', 'E'}}
+                  'D': {'A', 'C', 'E'},
+                  'E': {'A', 'B', 'D'}}
     return StaticMap(node_pos, node_graph, 200, 100, 2, 3)
 
 
