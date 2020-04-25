@@ -193,7 +193,7 @@ class Player(BasePlayer):
         pass
 
 # ------------------------------------ Tann & Grace's Edition Starts (Apr.25) -----------------------------------------------
-    def purchase(self, goal, inventory, gold, this_market_info):
+    
         """Return the item and amount to buy when player is at a destination market.
            Update self inventory and gold too before returning.
         Args:
@@ -206,12 +206,7 @@ class Player(BasePlayer):
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-# for example, take following as inputs:
-goal = {'Food':10, 'Social':15}
-inventory = {'Food':5}
-gold = 1000
-this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
-"""        
+    """        
     Step1: Compute a can_buy list of this market as [(prod1,buy_amt,score),(prod2,buy_amt,score)]
         1.1: check if product in this market is in our goal
              - if yes: do step2
@@ -228,7 +223,7 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
         2.1 decide which can_buy_product to purchase based on score -> (product, buy_amt)
         2.2 update gold
         2.3 update inventory                      
-"""
+    """
     def purchase(self, goal, inventory, gold, this_market_info):
         max_score = 0
         buy_amt = 0
@@ -271,6 +266,12 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
         # include remaining gold
         score += gold
         return score
+
+# for example, take following as inputs:
+goal = {'Food':10, 'Social':15}
+inventory = {'Food':5}
+gold = 1000
+this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
 
 # ----------------------------------- Tann & Grace's Edition Ends --------------------------------------------------------
 
