@@ -206,9 +206,10 @@ class Player(BasePlayer):
             # get the neighbours of the target market that have not been assessed
             # if this set less the black/grey market set is not empty,
             # return a random target white market
-            neighbour_set = map_obj.get_neighbours(tm) - assessed - bg_set
-            if neighbour_set:
-                return random.choice(list(neighbour_set))
+            neighbour_set = map_obj.get_neighbours(tm) - assessed
+            white_set = neighbour_set - bg_set
+            if white_set:
+                return random.choice(list(white_set))
 
             # otherwise, the assessed locations and all of the neighbours are black
             # The assessed should be updated to include all neighbours
@@ -387,17 +388,23 @@ class Player(BasePlayer):
                     visited[n] = True
                     previous[n] = current
 
+    def dist_to(self, from_loc, to_loc):
+        """Function to calculate the distance between two points
+        Args:
+            from_loc (tup): (x1, y1) starting coordinates
+            to_loc (tup): (x2, y2) ending coordinates
+        Output:
+            dist (float): distance between the coordinates as a result of
+                          sqrt((x2 - x1)^2 + (y2 - y1)^2)
+            """
+        x1, y1 = from_loc
+        x2, y2 = to_loc
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
     def central_market(self):
         """Function to determine which market is at the centre of the map
         Player is meant to move to the central market toward the end of the game
         """
-        # Obtain the Euclidean distance between two points by the formula
-        # sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
-        def central_dist(x, y):
-            # If the map corner is (0, 0), the map central is always as below
-            cx, cy = self.map.map_width / 2, self.map.map_height / 2
-            return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-
         # To iterate only once over each node, the minimum distance is first
         # initialised as a maximum possible distance, i.e. the corner of the
         # map. The shape of the circle is also a rectangle, equivalent to the
@@ -406,12 +413,15 @@ class Player(BasePlayer):
         # If the current minimum distance is greater than the distance of
         # the current node to the map center, reassign. This must be done
         # while keeping the angle of incident to the map center in mind
+        map_center = self.map.map_width / 2, self.map.map_height / 2
+        map_corner = self.map.map_width, self.map.map_height
         node_coords = self.map.map_data["node_positions"]
         map_ratio = self.map.map_width / self.map.map_height
-        min_dist = central_dist(self.map.map_width, self.map.map_height)
+        min_dist = self.dist_to(map_corner, map_center)
         distance_dict = dict()
         for node, coord in node_coords.items():
-            current_dist = central_dist(coord[0], coord[1])
+            coord = coord[:2]
+            current_dist = self.dist_to(coord, map_center)
             current_ratio = coord[0] / coord[1]
             distance_dict[node] = current_dist
 
@@ -611,7 +621,7 @@ if __name__ == "__main__":
     player = Player()
     player.map = test_map()
     player.loc = "A"
-    central_market = player.central_market()
+    central_market = player.central_market()[0]
     next_step, path = player.get_next_step(central_market)
     player.map.pretty_print_map()
     print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
