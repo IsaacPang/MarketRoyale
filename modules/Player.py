@@ -205,6 +205,57 @@ class Player(BasePlayer):
         Output: (product, amount)
         """
         return None
+    def sell(self, inventory, gold, goal, prices, market_prices): 
+        """Return the item and amount to sell
+
+        """
+        ## example input info
+        goal = {'Food':10, 'Social':15}
+        inventory = {'Food':5}
+        gold = 1000
+        this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
+        all_market_info ={market_A:{'Food':(50,10),'Electronics':(300,10)}, market_B: ...}
+        """
+        The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
+        Selling is only executed in the later periods when we have sufficient amount of info AND goal 
+        is completed. To check if a product worths trading, compute the variances for the product prices across
+        all the markets. If the variance is small, it implies the price for the product is stable, so no much
+        space for arbitrage and we don't have to bother with this product.
+        
+        Step 1:  compute the variances of the product price list (orderer by their variance in the descending order)
+        Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
+        Step 3:  Check if the market sells the target list products 
+                 if yes, go to step 4
+        Step 4:  Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
+                 Decision making: if the price at this market is above eg. the 75th percentile of the all the prices for this product,
+                                  it suggests it is the right place to sell
+                                  --- Implication: if it's below 25th percentile, possibly a right place to buy
+
+                 if yes, go to step 5
+        Step 5:  Check if our inventory contains the target products which the market has
+                 If yes, go to step 6
+        Step 6: Sell the target products
+    
+        """
+        # step 1
+        ##### import numpy as np
+        product_price={}
+        for market in all_market_info.keys():
+            for product in market.keys():
+                if product in product_price.keys():
+                    product_price[product].append(all_market_info[market][product][1])
+
+                else:
+                    product_price[product]=[all_market_info[market][product][1]]
+        price_variance=[]
+        for product in product_price.keys():
+            price_variance.append((product, np.var(product_price[product])))
+
+
+                
+
+
+
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
