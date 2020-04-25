@@ -489,10 +489,14 @@ class MapTestCase(unittest.TestCase):
 
     def test_search_market(self):
         p = Player()
-        p.map = test_map()
+        p.map = test_static_map()
         prod = ["Food", "Electronics", "Social", "Hardware"]
-        temp = list(zip(cycle(prod), map(list, enumerate(range(8)))))
-        p.market_prices = dict([("A", dict(temp[:4])), ("B", dict(temp[-4:]))])
+        nodes = p.map.get_node_names()
+        temp = list(zip(cycle(prod), map(list, enumerate(range(len(prod) * len(nodes))))))
+        temp2 = []
+        for i in range(len(nodes)):
+            temp2.append((nodes[i], dict(temp[(i*4):(4*(i+1))])))
+        p.market_prices = dict(temp2)
         # p.market_prices should look like:
         # {'A': {'Food': [0, 0],
         #        'Electronics': [1, 1],
@@ -501,8 +505,8 @@ class MapTestCase(unittest.TestCase):
         #  'B': {'Food': [4, 4],
         #        'Electronics': [5, 5],
         #        'Social': [6, 6],
-        #        'Hardware': [7, 7]}}
-        # Let inventory be empty
+        #        'Hardware': [7, 7]}}...
+        # test when inventory be empty with no bm and gm
         p.search_market(p.inventory, bm=[], gm=[])
 
 
