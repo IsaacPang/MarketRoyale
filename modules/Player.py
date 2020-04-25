@@ -284,14 +284,17 @@ class Player(BasePlayer):
         possible_targets = {product: [initial_name, max_price]
                             for product, amount in self.goal.items()
                             if self.inventory[product][0] < amount}
-        for market, info in self.market_prices.items():
-            # check if markets are white
-            if market not in bm + gm:
-                for product in info.keys():
-                    market_price = info[product][0]
-                    min_price = possible_targets[product][1]
-                    if (product in self.goal.keys()) and (market_price < min_price):
-                        possible_targets[product] = [market, market_price]
+        if possible_targets:
+            for market, info in self.market_prices.items():
+                # check if markets are white
+                if market not in bm + gm:
+                    for product in info.keys():
+                        market_price = info[product][0]
+                        min_price = possible_targets[product][1]
+                        if (product in self.goal.keys()) and (market_price < min_price):
+                            possible_targets[product] = [market, market_price]
+        else:
+            return None
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_next_step(market)[1])
                           for market, price in possible_targets.values()}
@@ -517,6 +520,16 @@ class MapTestCase(unittest.TestCase):
         # test when inventory be empty with no bm and gm
         target = p.search_market(bm=[], gm=[])
         self.assertEqual(target, "A")
+        # test when black market is "A"
+        target = p.search_market(bm=["A"], gm=[])
+        self.assertEqual(target, 'B')
+        # test when grey market is "A"
+        target = p.search_market(bm=[], gm=["A"])
+        self.assertEqual(target, "B")
+        # test when goal is reached
+        p.inventory = dict(zip(prod, map(list, [(5, 0)] * len(prod))))
+        target = p.search_market(bm=[], gm=[])
+        self.assertIsNone(target)
 
 
 # Creates a test case class specifically for basic player movement.
