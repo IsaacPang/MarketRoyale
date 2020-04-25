@@ -52,7 +52,6 @@ import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
 import math
-from Market import *
 
 
 class Player(BasePlayer):
@@ -64,11 +63,11 @@ class Player(BasePlayer):
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
         self.researched = []                    # researched markets:               [market1, market2..]
-        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
+        self.market_prices = {}                 # market prices from self/players:  {market:{product:[price, amount]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_achieved = True              # indicates whether goal achieved:  True/False
+        self.goal_achieved = False              # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
         self.loc = ''                           # player's current location:        str(market location)
 
@@ -99,8 +98,7 @@ class Player(BasePlayer):
         self.loc = location
 
         # add information from current market
-        # add self.loc to identify which market info we are looking for
-        self.save_market_prices(self.market_prices, self.loc, prices)
+        self.save_market_prices(self.market_prices, prices)
 
         # collect information from other player
         self.collect_rumours(info)
@@ -153,37 +151,40 @@ class Player(BasePlayer):
                     dictionary of information from other players
         Output: None
         """
+        amount='unknown'
         for market, information in info.items():
-            market_prices[market] = {information[0]: information[1]}
+            market_prices[market] = {information[0]: (information[1], amount)}
         return None
 
-    def save_market_prices(self, market_prices, market, prices):
+    def save_market_prices(self, market_prices, prices):
         """Save current market prices information into self.market_prices.
         Args:
-            market prices : {market:{product:(amount, price)}}
+            market prices : {market:{product:(price, amount)}}
                     dictionary of market and products and price they sell.
-            prices : {product : price}
+            prices : {product: (price, amount)}
                     items and prices sold in current market.
         Output: None
         """
-        market_prices[market] = self.market.get_prices()
+        market_prices[market] = prices
         return None
+
 
     def check_goal(self, inventory, goal):
         """Check if goal is acheived by comparing inventory and goal.
            Switch self.acheived_goal = True if acheived goal.
         Args:
-            inventory : {product : price}
+            inventory : {product:amount, asset_cost}
                     dictionary of products in inventory.
-            goal : {product : price}
+            goal : dictionary {product:amount needed}
                     dictionary of products required to acheive goal.
         Output: None
         """
-
         for prod, amount in self.goal.items():
-            if self.inventory[prod] < amount:
-                self.goal_achieved = False
+            if self.inventory[prod][0] < amount:
+                return None
+        self.goal_achieved = True
         return None
+
 
     def search_market(self, inventory, gold, location):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
