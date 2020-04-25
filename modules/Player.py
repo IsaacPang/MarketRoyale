@@ -206,7 +206,7 @@ class Player(BasePlayer):
             # get the neighbours of the target market that have not been assessed
             # if this set less the black/grey market set is not empty,
             # return a random target location
-            neighbour_set = set(map_obj.get_neighbours(tm)) - assessed
+            neighbour_set = map_obj.get_neighbours(tm) - assessed
             if neighbour_set - bg_set:
                 return random.choice(list(neighbour_set))
 
@@ -216,7 +216,7 @@ class Player(BasePlayer):
             else:
                 assessed.add(tm)
                 assessed = assessed.union(neighbour_set)
-                next_market = random.choice(neighbour_set)
+                next_market = random.choice(list(neighbour_set))
                 return first_white(next_market, map_obj, bg_set, assessed)
 
         self.target_loc = first_white(t1_target, self.map, set(bm + gm))
@@ -537,12 +537,18 @@ class StrategyTestCase(unittest.TestCase):
         p.loc = "V"
 
         # move to the furthest node, U
-        cmd, next_step = p.first_turn(bm=[], gm=[])
+        cmd, _ = p.first_turn(bm=[], gm=[])
         self.assertEqual(cmd, Command.MOVE_TO)
         self.assertEqual(p.target_loc, "U")
 
         # move to the furthest node from V that is not U
-        cmd, next_step = p.first_turn(bm=["U"], gm=[])
+        cmd, _ = p.first_turn(bm=["U"], gm=[])
+        self.assertEqual(cmd, Command.MOVE_TO)
+        self.assertNotEqual(p.target_loc, "U")
+        self.assertNotEqual(p.target_loc, "V")
+
+        # move to the furthest node from V that is not U or its neighbours
+        cmd, _ = p.first_turn(bm=["U"], gm=list(p.map.get_neighbours("U")))
         self.assertEqual(cmd, Command.MOVE_TO)
         self.assertNotEqual(p.target_loc, "U")
         self.assertNotEqual(p.target_loc, "V")
