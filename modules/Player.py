@@ -64,7 +64,7 @@ class Player(BasePlayer):
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
         self.researched = set()                 # researched markets:               set({market1, market2..})
-        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
+        self.market_prices = {}                 # market prices from self/players:  {market:{product:[price, amount]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
@@ -105,7 +105,7 @@ class Player(BasePlayer):
         self.loc = location
 
         # add information from current market
-        self.save_market_prices(self.market_prices, prices)
+        self.save_market_prices(prices)
 
         # collect information from other player
         self.collect_rumours(info)
@@ -222,40 +222,46 @@ class Player(BasePlayer):
         t1_target = first_white(t1_target, self.map, set(bm + gm))
         return Command.MOVE_TO, self.get_next_step(t1_target)
 
-    def collect_rumours(self, market_prices, info):
+    def collect_rumours(self, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
         Args:
-            market prices : {market:{product:[amount, price]}}
+            market prices : {market:{product:[price, amount]}}
                     dictionary of market and products and price they sell.
             info : { market : {product:price} }
                     dictionary of information from other players
         Output: None
         """
-        pass
+        if info:
+            for market, information in info.items():
+                if not self.market_prices.get(market):
+                    self.market_prices[market] = {information[0]: (information[1], None)}
 
-    def save_market_prices(self, market_prices, prices):
+    def save_market_prices(self, market, prices):
         """Save current market prices information into self.market_prices.
         Args:
-            market prices : {market:{product:(amount, price)}}
-                    dictionary of market and products and price they sell.
-            prices : {product : price}
+            market (str): market location
+            prices (dict): {product: (price, amount)}
                     items and prices sold in current market.
         Output: None
         """
-        pass
+        if prices:
+            self.market_prices[market] = prices
 
-    def check_goal(self, inventory, goal):
+    def check_goal(self):
         """Check if goal is acheived by comparing inventory and goal.
            Switch self.acheived_goal = True if acheived goal.
         Args:
-            inventory : {product : price}
+            inventory : {product:[amount, asset_cost]}
                     dictionary of products in inventory.
-            goal : {product : price}
+            goal : dictionary {product:amount needed}
                     dictionary of products required to acheive goal.
         Output: None
         """
-
-        pass
+        for prod, amount in self.goal.items():
+            if self.inventory[prod][1] < amount:
+                return None
+        self.goal_achieved = True
+        return None
 
     def search_market(self, inventory, gold, location):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
@@ -430,6 +436,9 @@ def suite():
     test_suite.addTest(MapTestCase('test_central'))
     test_suite.addTest(MovementTestCase('test_move'))
     test_suite.addTest(MovementTestCase('test_stay'))
+    test_suite.addTest(KnowledgeTestCase('test_check_goal'))
+    test_suite.addTest(KnowledgeTestCase('test_rumours'))
+    test_suite.addTest(KnowledgeTestCase('test_prices'))
     return test_suite
 
 
@@ -438,9 +447,9 @@ class MapTestCase(unittest.TestCase):
     # Tests if the output of a central market is correct.
     # In this test case, there is exactly one central market.
     def test_central(self):
-        p1 = Player()
-        p1.map = test_map()
-        self.assertEqual(p1.central_market(), "V")
+        p = Player()
+        p.map = test_map()
+        self.assertEqual(p.central_market(), "V")
 
 
 # Creates a test case class specifically for basic player movement.
@@ -448,22 +457,63 @@ class MovementTestCase(unittest.TestCase):
     # Tests if the next step is definitely within the neighbouring nodes.
     # Tests if the path length is correct.
     def test_move(self):
-        p1 = Player()
-        p1.map = test_map()
-        p1.loc = "A"
-        next_step, path = p1.get_next_step("V")
-        self.assertTrue(next_step in p1.map.get_neighbours("A"))
+        p = Player()
+        p.map = test_map()
+        p.loc = "A"
+        next_step, path = p.get_next_step("V")
+        self.assertTrue(next_step in p.map.get_neighbours("A"))
         self.assertEqual(len(path), 4)
 
     # Tests if the next step is to stay put if the player arrives.
     # Tests if the number of turns required is to stay still is 0.
     def test_stay(self):
-        p1 = Player()
-        p1.map = test_map()
-        p1.loc = "A"
-        next_step, path = p1.get_next_step("A")
+        p = Player()
+        p.map = test_map()
+        p.loc = "A"
+        next_step, path = p.get_next_step("A")
         self.assertIsNone(next_step)
         self.assertEqual(len(path), 1)
+
+
+# Creates test case class for player knowledge functions
+class KnowledgeTestCase(unittest.TestCase):
+    # Tests if the check_goal function works correctly
+    def test_check_goal(self):
+        p = Player()
+        p.inventory['Food'] = [100, 10]
+        p.set_goal({'Food': 10})
+        self.assertTrue(p.check_goal())
+
+        p.set_goal({'Food': 20})
+        self.assertFalse(p.check_goal())
+
+    # Tests is if the collect rumours function works correctly
+    def test_rumours(self):
+        p = Player()
+        info = {"A": {'Food': 90,
+                      'Social': 60},
+                "B": {'Food': 80,
+                      'Social': 70}
+                }
+        p.collect_rumours(info)
+        self.assertTrue(p.market_prices)
+        self.assertIsNone(p.market_prices["A"]["Food"][1])
+        self.assertEqual(p.market_prices["B"]["Social"][0] == 70)
+        p.market_prices["A"] = {'Food': [90, 100],
+                                'Social': [60, 50]}
+        p.collect_rumours(info)
+        self.assertIsNotNone(p.market_prices["A"]["Food"][1])
+        self.assertEqual(p.market_prices["A"]["Social"][1] == 50)
+
+    # Tests if the save_market_prices function works correctly
+    def test_prices(self):
+        p = Player()
+        market = "A"
+        prices = {'Food': [90, 100],
+                  'Social': [60, 50]}
+        p.save_market_prices(market, prices)
+        self.assertTrue(p.market_prices)
+        self.assertEqual(p.market_prices["A"]["Food"] == [90, 100])
 
 
 # This function helps output the map for testing.
@@ -481,14 +531,14 @@ def test_map(size=26, seed=23624):
 
 if __name__ == "__main__":
     # Print visual diagnostics
-    p1 = Player()
-    p1.map = test_map()
-    p1.loc = "A"
+    player = Player()
+    player.map = test_map()
+    player.loc = "A"
     target = "V"
-    next_step, path = p1.get_next_step(target)
-    central_market = p1.central_market()
-    p1.map.pretty_print_map()
-    print(f"Starting at {p1.loc}, the next step toward {target} is {next_step}.")
+    next_step, path = player.get_next_step(target)
+    central_market = player.central_market()
+    player.map.pretty_print_map()
+    print(f"Starting at {player.loc}, the next step toward {target} is {next_step}.")
     print(f"The optimal path is {list(path)}. This takes {len(path)} turns.")
     print(f"The central market is {central_market}")
 
