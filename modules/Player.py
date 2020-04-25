@@ -168,10 +168,15 @@ class Player(BasePlayer):
             cmd (tup): A tuple of Command.CMD, data, output by children functions
         """
         if turn == 1:
-            return self.first_turn()
+            return self.first_turn(bm_list, gm_list)
 
-        else:
-            return Command.PASS, None
+        while turn < 4:
+            return self.market_research(....)
+
+        # compare inventory here vs goal (check_goal)
+        # do something.
+
+        # else: return Command.PASS, None
 
         # if self.goal_achieved:
         #     return
@@ -191,18 +196,18 @@ class Player(BasePlayer):
             cmd (tup): A tuple of (Command.CMD, data)
         """
         self.ctr, distances = central_market()
-        target = max(distances, key=distances.get)
+        t1_target = max(distances, key=distances.get)
         # TODO: There could be grey markets in the first turn, this needs to capture that
-        if self.ctr == target:
+        if self.ctr == t1_target:
             # TODO: Build in a check for grey/black in research_turn()
-            self.target_loc = target
+            self.target_loc = t1_target
             return self.research_turn()
         else:
-            next_step = self.get_next_step(target)[0]
+            t1_next_step = self.get_next_step(t1_target)[0]
             ns_neighbours = self.map.get_neighbours(next_step)
 
             while next_step in (bm + gm) and ns_neighbours:
-                next_step = neighbours.pop()
+                t1_next_step = ns_neighbours.pop()
 
 
         pass
@@ -287,7 +292,7 @@ class Player(BasePlayer):
         """
         pass
 
-    def get_next_step(self, target):
+    def get_next_step(self, target_location):
         """Finds the fastest path by employing a breadth-first search algorithm.
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
@@ -301,7 +306,7 @@ class Player(BasePlayer):
 
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
-        assert target in nodes, "Target node not found in map"
+        assert(target_location in nodes, "Target node not found in map")
 
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
@@ -325,7 +330,7 @@ class Player(BasePlayer):
             # If the current node is the target node, we are done we need to backtrack to the start to create the path
             # to avoid re-sorting a list, we need a structure that would show the path from start to end, left -> right.
             # We want to return the path and the steps taken to reach the target node.
-            if current == target:
+            if current == target_location:
                 path = deque()
                 while current:
                     path.appendleft(current)
