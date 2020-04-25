@@ -186,7 +186,7 @@ class Player(BasePlayer):
         return None
 
 
-    def search_market(self, inventory, location, bm, gm):
+    def search_market(self, inventory, bm, gm):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
