@@ -211,6 +211,7 @@ goal = {'Food':10, 'Social':15}
 inventory = {'Food':5}
 gold = 1000
 this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
+# this outcome is: ('Hardware', 5)
     
     """        
     Step1: Compute a can_buy list of this market as [(prod1,buy_amt,score),(prod2,buy_amt,score)]
