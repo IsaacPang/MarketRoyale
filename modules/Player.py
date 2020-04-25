@@ -197,13 +197,13 @@ class Player(BasePlayer):
     def purchase(self, goal, inventory, gold, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
             Update self inventory and gold too before returning.
+
                 1. Find required item to buy (item in goal and under target amount)
                 2. Calculate amount to buy
-                3. If there are multiple items to required select base on:
-                    3.1 Highest score after purchase
-                            
-                1.4: compute score for this product
-                1.5: append (prod, buy_amt, score) into can_buy list
+                3. If there are multiple items to required select base on highest score 
+                   after purchase         
+                4. update self inventory, gold, and return output.
+                
             **Note This function is guaranteed to purchase a type of product even
             when the market couldnt meet our demand to reduce compelxity as the 
             score will be same/reduced when this happens. This is achevied by
@@ -219,6 +219,7 @@ class Player(BasePlayer):
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
+        
         max_score = 0 
         buy_amt = 0
         to_buy = None
