@@ -205,7 +205,7 @@ class Player(BasePlayer):
         Output: (product, amount)
         """
         return None
-    def sell(self, inventory, gold, goal, prices, market_prices): 
+    def buy_sell(self, inventory, gold, goal, prices, market_prices): 
         """Return the item and amount to sell
 
         """
@@ -247,9 +247,46 @@ class Player(BasePlayer):
 
                 else:
                     product_price[product]=[all_market_info[market][product][1]]
-        price_variance=[]
+        price_variance={}
         for product in product_price.keys():
-            price_variance.append((product, np.var(product_price[product])))
+            price_variance[product]= np.var(product_price[product])
+
+        # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
+        price_variance.sort(key= lambda x: -x[1])
+        target_list=price_variance[:4]
+        targetname=[product[0] for product in target_list]
+        # Step 3: Check if the market sells the target list products
+        to_trade=[]
+        for target in targetname:
+            for product in this_market_info.keys():
+                if target==product:
+                    to_trade.append(target)
+        # if the market doesn't sell the target products, function ends
+        if to_trade == []:
+            return False
+        # step 4: check if it's the right market to sell/buy
+        sell_now = []
+        buy_now = []
+        for product in to_trade:
+            if this_market_info[product][1]>= np.percentile(product_price[product], 75)):
+                sell_now.append(product)
+            elif this_market_info[product][1]<= np.percentile(product_price[product], 25)):
+                buy_now.append(product)
+            else:
+                return False
+
+        # step 5: Check if our inventory contains the target products which the market has
+        sell_list = []
+        for product in inventory.keys():
+            for target in sell_now:
+                if product == target:
+                    sell_list.append(product)
+        return [sell_list, buy_now]
+
+
+            
+
+        
 
 
                 
