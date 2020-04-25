@@ -275,7 +275,6 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
 
 # ----------------------------------- Tann & Grace's Edition Ends --------------------------------------------------------
 
-        return None
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
@@ -288,7 +287,17 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
                     How many gold the player has currently.
         Output: score (int)
         """
-        pass
+        score = 0
+        # score for hitting target
+        for (item, amount) in inventory.items():
+            if amount >= goal[item]:
+                score += 10000
+
+        # include remaining gold
+        score += gold
+
+        return score
+
 
     def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
