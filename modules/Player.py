@@ -192,7 +192,7 @@ class Player(BasePlayer):
         """
         pass
 
-# ------------------------------------ Grace's Thought Starts (Apr.25) -----------------------------------------------
+# ------------------------------------ Tann & Grace's Edition Starts (Apr.25) -----------------------------------------------
     def purchase(self, goal, inventory, gold, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
            Update self inventory and gold too before returning.
@@ -207,15 +207,10 @@ class Player(BasePlayer):
         Output: (product, amount)
         """
 # for example, take following as inputs:
-########################################### I wrote these codes in Spyder and define it as one simple function
-                                          # Please convert it to the correct format under CLASS
 goal = {'Food':10, 'Social':15}
 inventory = {'Food':5}
 gold = 1000
 this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
-
-def purchase(goal, inventory, gold, this_market_info):
-    can_buy = []
 """        
     Step1: Compute a can_buy list of this market as [(prod1,buy_amt,score),(prod2,buy_amt,score)]
         1.1: check if product in this market is in our goal
@@ -228,33 +223,56 @@ def purchase(goal, inventory, gold, this_market_info):
              - if yes: do not append this product into can_buy
              - if not: compute buy_amt = min(this_market_amt, gold//price, goal - inventory)
         1.4: compute score for this product
-        1.5: append (prod, buy_amt, score) into can_buy list                      
-"""
-    for product in this_market_info.keys():                             
-        if product in goal.keys():                               
-            if product in inventory.keys():                         
-                if inventory[product] <= goal[product]:                
-                    buy_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product] - inventory[product])
-            else:
-                buy_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product])
-        score = compute_score(...)   # call compute_score function
-        can_buy.append((product, buy_amt, score))
-"""
+        1.5: append (prod, buy_amt, score) into can_buy list
     Step2: Purchase
         2.1 decide which can_buy_product to purchase based on score -> (product, buy_amt)
         2.2 update gold
-        2.3 update inventory       
+        2.3 update inventory                      
 """
-    buy_prd = max(can_buy, key=lambda x: x[3])[0]
-    buy_amt = max(can_buy, key=lambda x: x[3])[1]
-    gold =  gold - buy_amt * this_market_info[buy_prd][0]
-    if buy_prd in invenotry.keys():
-        inventory[buy_prd] = inventory[buy_prd] + buy_amt
-    else:
-        inventory[buy_prd] = buy_amt
-    return (buy_prd, buy_amt)       
+    def purchase(self, goal, inventory, gold, this_market_info):
+        max_score = 0
+        buy_amt = 0
+        to_buy = None
+        for product in this_market_info.keys():                             
+            if product in goal.keys():                               
+                if product in inventory.keys():                         
+                    if inventory[product] < goal[product]:        
+                        tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product] - inventory[product])
+                else:
+                    tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product])
+            tmp_score = compute_score(inventory, gold, goal)
+            if tmp_score >= max_score:
+                to_buy = product
+                buy_amt = tmp_amt
+                max_score = tmp_score
+        gold =  gold - buy_amt * this_market_info[to_buy][0]
+        if to_buy in invenotry.keys():
+            inventory[to_buy] = inventory[to_buy] + buy_amt
+        else:
+            inventory[to_buy] = buy_amt
+        return (to_buy, buy_amt)       
 
-# ----------------------------------- Grace's Thought Ends --------------------------------------------------------
+    def compute_score(self, inventory, gold, goal):
+        """Compute and return score.
+        Args:
+            inventory : {product : price}
+                    dictionary of products in inventory.
+            goal : {product : price}
+                    dictionary of products required to acheive goal.
+            gold : int
+                    How many gold the player has currently.
+        Output: score (int)
+        """
+        score = 0
+        # score for hitting target
+        for (item, amount) in inventory.items():
+            if amount >= goal[item]:
+                score += 10000
+        # include remaining gold
+        score += gold
+        return score
+
+# ----------------------------------- Tann & Grace's Edition Ends --------------------------------------------------------
 
         return None
 
