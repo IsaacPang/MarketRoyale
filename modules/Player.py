@@ -198,16 +198,16 @@ class Player(BasePlayer):
         # Find the first, random white market closest to the target market
         # This is done recursively until a white market is found
         # On turn 1, white markets are expected
-        def first_white(tm, map_obj, bg_set, assessed=set()):
+        def nearest_white(tm, map_obj, bg_set, assessed=set()):
             # return the target market if it is a white market
             if tm not in bg_set:
                 return tm
 
             # get the neighbours of the target market that have not been assessed
             # if this set less the black/grey market set is not empty,
-            # return a random target location
-            neighbour_set = map_obj.get_neighbours(tm) - assessed
-            if neighbour_set - bg_set:
+            # return a random target white market
+            neighbour_set = map_obj.get_neighbours(tm) - assessed - bg_set
+            if neighbour_set:
                 return random.choice(list(neighbour_set))
 
             # otherwise, the assessed locations and all of the neighbours are black
@@ -217,9 +217,9 @@ class Player(BasePlayer):
                 assessed.add(tm)
                 assessed = assessed.union(neighbour_set)
                 next_market = random.choice(list(neighbour_set))
-                return first_white(next_market, map_obj, bg_set, assessed)
+                return nearest_white(next_market, map_obj, bg_set, assessed)
 
-        self.target_loc = first_white(t1_target, self.map, set(bm + gm))
+        self.target_loc = nearest_white(t1_target, self.map, set(bm + gm))
         return Command.MOVE_TO, self.get_next_step(self.target_loc)[0]
 
     def collect_rumours(self, info):
