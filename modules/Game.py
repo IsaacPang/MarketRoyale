@@ -12,7 +12,7 @@ import copy
 import string
 import traceback
 
-NUM_TURNS = 50
+NUM_TURNS = 300
 
 START_GOLD = sum([sum(P_BOUNDS[k])/2 * sum(A_BOUNDS[k])/2 for k in PRODUCTS])
 
@@ -102,6 +102,7 @@ class Game:
     def get_prices_from_other_players(self, p_id):
         """@return Dictionary node:price_dict, where price_dict = {product:price} as str:float
         """
+        #determine whihc part info will pass
         players_here = [p_info for p_id,p_info in self.players.items() if p_info[INFO_LOC] == self.players[p_id][INFO_LOC]]
 
         ret_value = {}

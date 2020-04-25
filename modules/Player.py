@@ -63,7 +63,7 @@ class Player(BasePlayer):
         # Set additional properties
         self.turn = 0                           # how many turns taken in game:     0,1,..*
         self.researched = []                    # researched markets:               [market1, market2..]
-        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
+        self.market_prices = {}                 # market prices from self/players:  {market:{product:[price, amount]}}
         self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
         self.gold = 0                           # gold:                             0,1,..*
         self.score = 0                          # score from inventory and gold:    0,1,..*
@@ -145,37 +145,46 @@ class Player(BasePlayer):
     def collect_rumours(self, market_prices, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
         Args:
-            market prices : {market:{product:[amount, price]}}
+            market prices : {market:{product:[price, amount]}}
                     dictionary of market and products and price they sell.
             info : { market : {product:price} }
                     dictionary of information from other players
         Output: None
         """
-        pass
+        amount=None
+        for market, information in info.items():
+            market_prices[market] = {information[0]: (information[1], amount)}
+        return None
 
     def save_market_prices(self, market_prices, prices):
         """Save current market prices information into self.market_prices.
         Args:
-            market prices : {market:{product:(amount, price)}}
+            market prices : {market:{product:(price, amount)}}
                     dictionary of market and products and price they sell.
-            prices : {product : price}
+            prices : {product: (price, amount)}
                     items and prices sold in current market.
         Output: None
         """
-        pass
+        market_prices[market] = prices
+        return None
+
 
     def check_goal(self, inventory, goal):
         """Check if goal is acheived by comparing inventory and goal.
            Switch self.acheived_goal = True if acheived goal.
         Args:
-            inventory : {product : price}
+            inventory : {product:[amount, asset_cost]}
                     dictionary of products in inventory.
-            goal : {product : price}
+            goal : dictionary {product:amount needed}
                     dictionary of products required to acheive goal.
         Output: None
         """
+        for prod, amount in self.goal.items():
+            if self.inventory[prod][0] < amount:
+                return None
+        self.goal_achieved = True
+        return None
 
-        pass
 
     def search_market(self, inventory, gold, location):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
