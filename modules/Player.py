@@ -52,6 +52,7 @@ import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
 import math
+from Market import *
 
 
 class Player(BasePlayer):
@@ -101,7 +102,7 @@ class Player(BasePlayer):
         # add self.loc to identify which market info we are looking for
         self.save_market_prices(self.market_prices, self.loc, prices)
 
-        # collect information from other player #where to get info??
+        # collect information from other player
         self.collect_rumours(info)
 
         # check if goal achieved
@@ -165,7 +166,7 @@ class Player(BasePlayer):
                     items and prices sold in current market.
         Output: None
         """
-        market_prices[market] = Market.get_prices()
+        market_prices[market] = self.market.get_prices()
         return None
 
     def check_goal(self, inventory, goal):
