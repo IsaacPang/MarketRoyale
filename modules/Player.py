@@ -51,6 +51,7 @@ Dream TODO List:
 import Command
 from BasePlayer import BasePlayer
 from collections import defaultdict, deque
+from collections import defaultdict
 import math
 
 
@@ -61,15 +62,15 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0                           # how many turns taken in game:     0,1,..*
-        self.researched = []                    # researched markets:               [market1, market2..]
-        self.market_prices = {}                 # market prices from self/players:  {market:{product:[amount, price]}}
-        self.inventory = {}                     # record items in inventory:        {product:[amount, asset_cost]}
-        self.gold = 0                           # gold:                             0,1,..*
-        self.score = 0                          # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False              # indicates whether goal achieved:  True/False
-        self.visited_node = defaultdict(int)    # location visit counts:            {location: times_visited}
-        self.loc = ''                           # player's current location:        str(market location)
+        self.turn = 0                              # how many turns taken in game:     0,1,..*
+        self.researched = []                       # researched markets:               [market1, market2..]
+        self.market_prices = {}                    # market prices from self/players:  {market:{product:[amount, price]}}
+        self.inventory = defaultdict(lambda:(0,0)) # record items in inventory:        {product:(amount, asset_cost)}
+        self.gold = 0                              # gold:                             0,1,..*
+        self.score = 0                             # score from inventory and gold:    0,1,..*
+        self.goal_achieved = False                 # indicates whether goal achieved:  True/False
+        self.visited_node = defaultdict(int)       # location visit counts:            {location: times_visited}
+        self.loc = ''                              # player's current location:        str(market location)
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
@@ -192,81 +193,78 @@ class Player(BasePlayer):
         """
         pass
 
-# ------------------------------------ Tann & Grace's Edition Starts (Apr.25) -----------------------------------------------
-    def purchase(self, goal, inventory, gold, this_market_info)
+
+    def purchase(self, goal, inventory, gold, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
-           Update self inventory and gold too before returning.
+            Update self inventory and gold too before returning.
+                1. Find required item to buy (item in goal and under target amount)
+                2. Calculate amount to buy
+                3. If there are multiple items to required select base on:
+                    3.1 Highest score after purchase
+                            
+                1.4: compute score for this product
+                1.5: append (prod, buy_amt, score) into can_buy list
+            **Note This function is guaranteed to purchase a type of product even
+            when the market couldnt meet our demand to reduce compelxity as the 
+            score will be same/reduced when this happens. This is achevied by
+            setting initial max_score=0.    
+                
         Args:
             1. goal: {prod1:amt1, prod2:amt2}
                 a dictionary of products required to acheive goal.
-            2. inventory: {prod1:amt1:(min_price1, max_price1), prod2:amt2:(min_price2,max_price2)}
-                a dictionary of products, amot of products, min/max buying prices previously in inventory.            
+            2. inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
+                a dictionary of products, amount of products, cost spent buying the items in inventory.            
             3. gold : gold_amt            
-            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}     -> from Market line22 
+            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-# for example, take following as inputs:
-goal = {'Food':10, 'Social':15}
-inventory = {'Food':5}
-gold = 1000
-this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
-# this outcome is: ('Hardware', 5)
-    
-    """        
-    Step1: Compute a can_buy list of this market as [(prod1,buy_amt,score),(prod2,buy_amt,score)]
-        1.1: check if product in this market is in our goal
-             - if yes: do step2
-             - if not: do not append this product into can_buy                         
-        1.2: check if product is in inventory
-             - if yes: do step3
-             - if not: compute buy_amt = min(this_market_amt, gold//price, goal)
-        1.3: check if in_inventory_product's goal is met
-             - if yes: do not append this product into can_buy
-             - if not: compute buy_amt = min(this_market_amt, gold//price, goal - inventory)
-        1.4: compute score for this product
-        1.5: append (prod, buy_amt, score) into can_buy list
-    Step2: Purchase
-        2.1 decide which can_buy_product to purchase based on score -> (product, buy_amt)
-        2.2 update gold
-        2.3 update inventory                      
-    """
-    def purchase(self, goal, inventory, gold, this_market_info):
-        max_score = 0
+        max_score = 0 
         buy_amt = 0
         to_buy = None
-        tmp_inventory = inventory.copy()
-        tmp_gold = gold
-        
-        for product in this_market_info.keys():                             
-            if product in goal.keys():                               
-                if product in inventory.keys():                         
-                    if inventory[product] < goal[product]:        
-                        tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product] - inventory[product])
-                else:
-                    tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product])
+
+        # find the best item to buy
+        for product in this_market_info.keys():
+
+            # initialize dummy variables used to record after purchase inventory and gold to compute score         
+            tmp_inventory = inventory.copy()
+            tmp_gold = gold                    
             
-            tmp_inventory[prod] += tmp_amt
-            tmp_gold -= tmp_amt * thismarket_info[prod][0]  
-            tmp_score = compute_score(inventory, gold, goal)
-            if tmp_score >= max_score:
-                to_buy = product
-                buy_amt = tmp_amt
-                max_score = tmp_score
+            # if product is whatwe need
+            if product in goal.keys() and inventory[product][0] < goal[product]:
+                # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
+                tmp_amt = min(this_market_info[product][1], gold // this_market_info[product][0], goal[product] - inventory[product][0])
+
+                # update dummy variables to reflect after purchase inventory and gold level
+                tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt, tmp_amt * tmp_inventory[product][1] + this_market_info[product][0])
+                tmp_gold -= tmp_amt * this_market_info[product][0]
+
+                # compute score and update best item to buy
+                tmp_score = compute_score(0, tmp_inventory, tmp_gold, goal)
+                
+                if tmp_score >= max_score:
+                    to_buy = product
+                    buy_amt = tmp_amt
+                    max_score = tmp_score
+            
         
-        gold =  gold - buy_amt * this_market_info[to_buy][0]
+        # update self inventory/gold then return purchased item
+        cost = buy_amt * this_market_info[to_buy][0]
+        gold =  gold - cost
         if to_buy in inventory.keys():
-            inventory[to_buy] = inventory[to_buy] + buy_amt
+            inventory[to_buy] = (inventory[to_buy][0] + buy_amt, inventory[to_buy][1] +cost)
         else:
-            inventory[to_buy] = buy_amt
-        
+            inventory[to_buy] = (buy_amt, cost)
+
+        assert(to_buy != None)
         return (to_buy, buy_amt)       
 
+
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
         Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
+            inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
+                a dictionary of products, amount of products, cost spent buying the items in inventory.   
             goal : {product : price}
                     dictionary of products required to acheive goal.
             gold : int
@@ -275,31 +273,8 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
         """
         score = 0
         # score for hitting target
-        for (item, amount) in inventory.items():
-            if amount >= goal[item]:
-                score += 10000
-        # include remaining gold
-        score += gold
-        return score
-
-# ----------------------------------- Tann & Grace's Edition Ends --------------------------------------------------------
-
-
-    def compute_score(self, inventory, gold, goal):
-        """Compute and return score.
-        Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
-            goal : {product : price}
-                    dictionary of products required to acheive goal.
-            gold : int
-                    How many gold the player has currently.
-        Output: score (int)
-        """
-        score = 0
-        # score for hitting target
-        for (item, amount) in inventory.items():
-            if amount >= goal[item]:
+        for item in inventory.keys():
+            if inventory[item][0] >= goal[item]:
                 score += 10000
 
         # include remaining gold
@@ -307,6 +282,19 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
 
         return score
 
+    ## for example, take following as inputs:
+    #goal = {'Food':10, 'Social':15}
+
+    #inventory = defaultdict(lambda:(0,0))
+    #inventory['Food'] = (5,0)
+
+    #gold = 500
+    #this_market_info = {'Food':(100,3),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
+    #print('------------------------------------------------------')
+    #print(purchase(0, goal, inventory, gold, this_market_info))
+    #print('------------------------------------------------------')
+    #print('inventory = ', inventory)
+    ## this outcome is: ('Food', 3)
 
     def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
@@ -362,6 +350,7 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
+
 
     def central_market(self):
         """Function to determine which market is at the centre of the map
