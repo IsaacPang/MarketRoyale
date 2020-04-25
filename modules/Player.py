@@ -186,7 +186,7 @@ class Player(BasePlayer):
             cmd (tup): A tuple of (Command.CMD, data)
         """
         # Set the central market
-        self.ctr, distances = central_market()
+        self.ctr, distances = self.central_market()
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
@@ -208,7 +208,7 @@ class Player(BasePlayer):
             # return a random target location
             neighbour_set = set(map_obj.get_neighbours(tm)) - assessed
             if neighbour_set - bg_set:
-                return random.choice(neighbour_set)
+                return random.choice(list(neighbour_set))
 
             # otherwise, the assessed locations and all of the neighbours are black
             # The assessed should be updated to include all neighbours
@@ -219,8 +219,8 @@ class Player(BasePlayer):
                 next_market = random.choice(neighbour_set)
                 return first_white(next_market, map_obj, bg_set, assessed)
 
-        t1_target = first_white(t1_target, self.map, set(bm + gm))
-        return Command.MOVE_TO, self.get_next_step(t1_target)
+        self.target_loc = first_white(t1_target, self.map, set(bm + gm))
+        return Command.MOVE_TO, self.get_next_step(self.target_loc)[0]
 
     def collect_rumours(self, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
@@ -234,7 +234,7 @@ class Player(BasePlayer):
         if info:
             for market, information in info.items():
                 if not self.market_prices.get(market):
-                    self.market_prices[market] = {information[0]: (information[1], None)}
+                    self.market_prices[market] = {k: (v, None) for k, v in information.items()}
 
     def save_market_prices(self, market, prices):
         """Save current market prices information into self.market_prices.
@@ -432,13 +432,24 @@ from Map import Map
 
 # Define the test suite for all test cases.
 def suite():
+    # Test suite instance
     test_suite = unittest.TestSuite()
+
+    # Map testing
     test_suite.addTest(MapTestCase('test_central'))
+
+    # Movement testing
     test_suite.addTest(MovementTestCase('test_move'))
     test_suite.addTest(MovementTestCase('test_stay'))
+
+    # Knowledge testing
     test_suite.addTest(KnowledgeTestCase('test_check_goal'))
     test_suite.addTest(KnowledgeTestCase('test_rumours'))
     test_suite.addTest(KnowledgeTestCase('test_prices'))
+
+    # Strategy testing
+    test_suite.addTest(StrategyTestCase('test_first_turn'))
+
     return test_suite
 
 
@@ -449,7 +460,7 @@ class MapTestCase(unittest.TestCase):
     def test_central(self):
         p = Player()
         p.map = test_map()
-        self.assertEqual(p.central_market(), "V")
+        self.assertEqual(p.central_market()[0], "V")
 
 
 # Creates a test case class specifically for basic player movement.
@@ -482,7 +493,8 @@ class KnowledgeTestCase(unittest.TestCase):
         p = Player()
         p.inventory['Food'] = [100, 10]
         p.set_goal({'Food': 10})
-        self.assertTrue(p.check_goal())
+        p.check_goal()
+        self.assertTrue(p.goal_achieved)
 
         p.set_goal({'Food': 20})
         self.assertFalse(p.check_goal())
@@ -498,12 +510,12 @@ class KnowledgeTestCase(unittest.TestCase):
         p.collect_rumours(info)
         self.assertTrue(p.market_prices)
         self.assertIsNone(p.market_prices["A"]["Food"][1])
-        self.assertEqual(p.market_prices["B"]["Social"][0] == 70)
+        self.assertEqual(p.market_prices["B"]["Social"][0], 70)
         p.market_prices["A"] = {'Food': [90, 100],
                                 'Social': [60, 50]}
         p.collect_rumours(info)
         self.assertIsNotNone(p.market_prices["A"]["Food"][1])
-        self.assertEqual(p.market_prices["A"]["Social"][1] == 50)
+        self.assertEqual(p.market_prices["A"]["Social"][1], 50)
 
     # Tests if the save_market_prices function works correctly
     def test_prices(self):
@@ -513,7 +525,34 @@ class KnowledgeTestCase(unittest.TestCase):
                   'Social': [60, 50]}
         p.save_market_prices(market, prices)
         self.assertTrue(p.market_prices)
-        self.assertEqual(p.market_prices["A"]["Food"] == [90, 100])
+        self.assertEqual(p.market_prices["A"]["Food"], [90, 100])
+
+
+# Create a class for testing strategy.
+class StrategyTestCase(unittest.TestCase):
+    # Testing first turn strategy
+    def test_first_turn(self):
+        p = Player()
+        p.map = test_map()
+        p.loc = "V"
+
+        # move to the furthest node, U
+        cmd, next_step = p.first_turn(bm=[], gm=[])
+        self.assertEqual(cmd, Command.MOVE_TO)
+        self.assertEqual(p.target_loc, "U")
+
+        # move to the furthest node from V that is not U
+        cmd, next_step = p.first_turn(bm=["U"], gm=[])
+        self.assertEqual(cmd, Command.MOVE_TO)
+        self.assertNotEqual(p.target_loc, "U")
+        self.assertNotEqual(p.target_loc, "V")
+
+        # stay at the node and research
+        p.loc = "U"
+        cmd, next_step = p.first_turn([], [])
+        self.assertEqual(cmd, Command.RESEARCH)
+        self.assertIsNone(next_step)
+
 
 
 # This function helps output the map for testing.
