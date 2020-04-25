@@ -210,38 +210,50 @@ class Player(BasePlayer):
 ########################################### I wrote these codes in Spyder and define it as one simple function
                                           # Please convert it to the correct format under CLASS
 goal = {'Food':10, 'Social':15}
-inventory = {}
+inventory = {'Food':5}
 gold = 1000
 this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
 
-#
 def purchase(goal, inventory, gold, this_market_info):
     can_buy = []
-    have_bought = []
-    ## (Tann) This allow player to buy different products in a turn, i think the specs only allow 1 product at 
-    ##        at a time, try changing it into deciding which type of product to buy 
-    for prod in this_market_info.keys():  
-                                        
-        if prod in goal.keys():
-           can_buy.append((prod, this_market_info[prod]))   # record all possible products can be bought from this market for further use
-           # start buying IN ORDER, regardless of a product's price compared to others
-           
-           if gold >= this_market_info[prod][0]: 
-               max_buy_amt = min(this_market_info[prod][1], gold // this_market_info[prod][0])   # (Tann) good. but do we want to buy everything we can or just enough to meet goal?
-               cost = max_buy_amt * this_market_info[prod][0]
-               gold = gold - cost                                       # update gold after purchase
-              
-               if prod in inventory.keys():                             # update inventory after purchase
-                   inventory[prod] = inventory[prod] + max_buy_amot
-               else:
-                   inventory[prod] = max_buy_amt
-               have_bought.append((prod, max_buy_amt))
-    
-    return have_bought        
+"""        
+    Step1: Compute a can_buy list of this market as [(prod1,buy_amt,score),(prod2,buy_amt,score)]
+        1.1: check if product in this market is in our goal
+             - if yes: do step2
+             - if not: do not append this product into can_buy                         
+        1.2: check if product is in inventory
+             - if yes: do step3
+             - if not: compute buy_amt = min(this_market_amt, gold//price, goal)
+        1.3: check if in_inventory_product's goal is met
+             - if yes: do not append this product into can_buy
+             - if not: compute buy_amt = min(this_market_amt, gold//price, goal - inventory)
+        1.4: compute score for this product
+        1.5: append (prod, buy_amt, score) into can_buy list                      
+"""
+    for product in this_market_info.keys():                             
+        if product in goal.keys():                               
+            if product in inventory.keys():                         
+                if inventory[product] <= goal[product]:                
+                    buy_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product] - inventory[product])
+            else:
+                buy_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product])
+        score = compute_score(...)   # call compute_score function
+        can_buy.append((product, buy_amt, score))
+"""
+    Step2: Purchase
+        2.1 decide which can_buy_product to purchase based on score -> (product, buy_amt)
+        2.2 update gold
+        2.3 update inventory       
+"""
+    buy_prd = max(can_buy, key=lambda x: x[3])[0]
+    buy_amt = max(can_buy, key=lambda x: x[3])[1]
+    gold =  gold - buy_amt * this_market_info[buy_prd][0]
+    if buy_prd in invenotry.keys():
+        inventory[buy_prd] = inventory[buy_prd] + buy_amt
+    else:
+        inventory[buy_prd] = buy_amt
+    return (buy_prd, buy_amt)       
 
-purchase(goal, inventory, gold, this_market_info)
-# output is: [('Food', 10), ('Social', 3)] -> please test it
-                
 # ----------------------------------- Grace's Thought Ends --------------------------------------------------------
 
         return None
