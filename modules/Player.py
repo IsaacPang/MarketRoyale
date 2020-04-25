@@ -279,23 +279,25 @@ class Player(BasePlayer):
         # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
-        maxprice = math.inf
+        max_price = math.inf
         initial_name = ''
-        #get the product name which has not reached the goal
-        possible_targets = {product: [initial_name, maxprice]
+        # get the product name which has not reached the goal
+        possible_targets = {product: [initial_name, max_price]
                             for product, amount in self.goal.items()
                             if inventory[product][0] < amount}
         for market, info in self.market_prices:
-            if (market not in bm) and (market not in gm):    #check if in bm or gm
+            # check if markets are white
+            if (market not in bm) and (market not in gm):
                 for product in info.keys():
                     if (product in self.goal.keys()) and (info[product][0] < possible_targets[product][1]):
                         possible_targets[product] = [market, info[product][0]]
-        # calculate the distance
+        # calculate the distances to these markets
         dist_to_target = {market: len(self.get_next_step(market)[1]) for market in possible_targets.values()}
-        # find the market not in bm or gm
-        # min_val = min(dist_to_target.values())
-        # final_target = [k for k, v in dist_to_target.items() if v == min_val]
-        return min(dist_to_target, key=dist_to_target.get)
+        # find the closest white market to achieve the goal
+        if dist_to_target:
+            return min(dist_to_target, key=dist_to_target.get)
+        else:
+            return None
 
     def purchase(self, inventory, gold, prices):
         """Return the item and anoubt to buy when player is at a destination market.
@@ -329,8 +331,6 @@ class Player(BasePlayer):
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
-        # TODO: need to update location before calling function
-        # TODO: This is not the best path, this is the path that takes the fewest turns.
         # TODO: Update this with a check if the intermediary nodes are black or grey markets
 
         # Set the starting location as the player's current location
@@ -338,7 +338,6 @@ class Player(BasePlayer):
 
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
-        assert(target_location in nodes, "Target node not found in map")
 
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
@@ -395,10 +394,6 @@ class Player(BasePlayer):
         # Obtain the Euclidean distance between two points by the formula
         # sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
         def central_dist(x, y):
-            # TODO: Ensure that the circle closes at midpoint
-            # TODO: Probably let Andrew know that the circle needs to surround
-            #       the geometric centre
-
             # If the map corner is (0, 0), the map central is always as below
             cx, cy = self.map.map_width / 2, self.map.map_height / 2
             return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
@@ -498,9 +493,7 @@ class MapTestCase(unittest.TestCase):
         #        'Social': [6, 6],
         #        'Hardware': [7, 7]}}
         # Let inventory be empty
-        bm = []
-        gm = []
-        p.search_market(p.inventory, bm, gm)
+        p.search_market(p.inventory, bm=[], gm=[])
 
 
 # Creates a test case class specifically for basic player movement.
@@ -618,12 +611,11 @@ if __name__ == "__main__":
     player = Player()
     player.map = test_map()
     player.loc = "A"
-    target = "V"
-    next_step, path = player.get_next_step(target)
     central_market = player.central_market()
+    next_step, path = player.get_next_step(central_market)
     player.map.pretty_print_map()
-    print(f"Starting at {player.loc}, the next step toward {target} is {next_step}.")
-    print(f"The optimal path is {list(path)}. This takes {len(path)} turns.")
+    print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
+    print(f"The quickest path is {list(path)}. This takes {len(path)} turns.")
     print(f"The central market is {central_market}")
 
     runner = unittest.TextTestRunner()
