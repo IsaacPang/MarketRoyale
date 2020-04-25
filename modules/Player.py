@@ -204,6 +204,54 @@ class Player(BasePlayer):
                     prices of item in the market.
         Output: (product, amount)
         """
+
+# ------------------------------------ Grace's Thought Starts (Apr.25) -----------------------------------------------
+    def purchase(self, goal, inventory, gold, this_market_info):
+        """Return the item and amount to buy when player is at a destination market.
+           Update self inventory and gold too before returning.
+        Args:
+            1. goal: {prod1:amt1, prod2:amt2}
+                a dictionary of products required to acheive goal.
+            2. inventory: {prod1:amt1:(min_price1, max_price1), prod2:amt2:(min_price2,max_price2)}
+                a dictionary of products, amot of products, min/max buying prices previously in inventory.            
+            3. gold : gold_amt            
+            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}     -> from Market line22
+                a dictionary of prices of item in the current market.
+        Output: (product, amount)
+        """
+# for example, take following as inputs
+goal = {'Food':10, 'Social':15}
+inventory = {}
+gold = 1000
+this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
+
+def purchase(goal=goal, inventory=inventory, gold=gold, this_market_info=this_market_info):
+    can_buy = []
+    have_bought = []
+    for prod in this_market_info.keys():
+        
+        if prod in goal.keys():
+           can_buy.append((prod, this_market_info[prod]))   # record all possible products can be bought from this market for further use
+           # start buying IN ORDER, regardless of a product's price compared to others
+           
+           if gold >= this_market_info[prod][0]: 
+               max_buy_amt = min(this_market_info[prod][1], gold // this_market_info[prod][0])
+               cost = max_buy_amt * this_market_info[prod][0]
+               gold = gold - cost                                       # update gold after purchase
+              
+               if prod in inventory.keys():                             # update inventory after purchase
+                   inventory[prod] = inventory[prod] + max_buy_amot
+               else:
+                   inventory[prod] = max_buy_amt
+               have_bought.append((prod, max_buy_amt))
+    
+    return have_bought        
+
+purchase()
+# output is: [('Food', 10), ('Social', 3)] -> please test it
+                
+# ----------------------------------- Grace's Thought Ends --------------------------------------------------------
+
         return None
 
     def compute_score(self, inventory, gold, goal):
