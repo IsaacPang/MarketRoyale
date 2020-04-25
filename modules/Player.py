@@ -145,13 +145,13 @@ class Player(BasePlayer):
     def collect_rumours(self, market_prices, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
         Args:
-            market prices : {market:{product:[amount, price]}}
+            market prices : {market:{product:[price, amount]}}
                     dictionary of market and products and price they sell.
             info : { market : {product:price} }
                     dictionary of information from other players
         Output: None
         """
-        amount='unknown'
+        amount=None
         for market, information in info.items():
             market_prices[market] = {information[0]: (information[1], amount)}
         return None
@@ -173,7 +173,7 @@ class Player(BasePlayer):
         """Check if goal is acheived by comparing inventory and goal.
            Switch self.acheived_goal = True if acheived goal.
         Args:
-            inventory : {product:amount, asset_cost}
+            inventory : {product:[amount, asset_cost]}
                     dictionary of products in inventory.
             goal : dictionary {product:amount needed}
                     dictionary of products required to acheive goal.
