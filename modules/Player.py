@@ -355,6 +355,7 @@ class Player(BasePlayer):
 
 import unittest
 import string
+from itertools import cycle
 from Map import Map
 
 
@@ -375,6 +376,27 @@ class MapTestCase(unittest.TestCase):
         p1 = Player()
         p1.map = test_map()
         self.assertEqual(p1.central_market(), "V")
+
+    def test_search_market(self):
+        p = Player()
+        p.map = test_map()
+        prod = ["Food", "Electronics", "Social", "Hardware"]
+        temp = list(zip(cycle(prod), map(list, enumerate(range(8)))))
+        p.market_prices = dict([("A", dict(temp[:4])), ("B", dict(temp[-4:]))])
+        # p.market_prices should look like:
+        # {'A': {'Food': [0, 0],
+        #        'Electronics': [1, 1],
+        #        'Social': [2, 2],
+        #        'Hardware': [3, 3]},
+        #  'B': {'Food': [4, 4],
+        #        'Electronics': [5, 5],
+        #        'Social': [6, 6],
+        #        'Hardware': [7, 7]}}
+        # Let inventory be empty
+        bm = []
+        gm = []
+        p.search_market(p.inventory, bm, gm)
+
 
 
 # Creates a test case class specifically for basic player movement.
