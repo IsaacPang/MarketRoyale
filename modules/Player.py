@@ -219,7 +219,9 @@ class Player(BasePlayer):
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-# for example, take following as inputs
+# for example, take following as inputs:
+########################################### I wrote these codes in Spyder and define it as one simple function
+                                          # Please convert it to the correct format under CLASS
 goal = {'Food':10, 'Social':15}
 inventory = {}
 gold = 1000
