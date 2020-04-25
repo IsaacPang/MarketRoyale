@@ -256,7 +256,6 @@ def purchase(goal, inventory, gold, this_market_info):
 
 # ----------------------------------- Grace's Thought Ends --------------------------------------------------------
 
-        return None
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
@@ -269,7 +268,17 @@ def purchase(goal, inventory, gold, this_market_info):
                     How many gold the player has currently.
         Output: score (int)
         """
-        pass
+        score = 0
+        # score for hitting target
+        for (item, amount) in inventory.items():
+            if amount >= goal[item]:
+                score += 10000
+
+        # include remaining gold
+        score += gold
+
+        return score
+
 
     def get_next_step(self, target):
         """Finds the fastest path by employing a breadth-first search algorithm.
