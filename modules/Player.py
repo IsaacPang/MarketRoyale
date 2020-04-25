@@ -157,11 +157,10 @@ class Player(BasePlayer):
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
 
-    def get_strategy(self, turn, p_info, bm_list, gm_list):
+    def get_strategy(self, turn, bm_list, gm_list):
         """Returns a function that dictates the player's current strategy
         Args:
             turn (int): The current turn
-            p_info (dict): Information from other players passed from take_turn
             bm_list (list): List of black markets passed from take_turn
             gm_list (list): List of grey markets passed from take_turn
         Output:
@@ -169,17 +168,8 @@ class Player(BasePlayer):
         """
         if turn == 1:
             return self.first_turn(bm_list, gm_list)
-
-        while turn < 4:
-            return self.market_research(....)
-
-        # compare inventory here vs goal (check_goal)
-        # do something.
-
-        # else: return Command.PASS, None
-
-        # if self.goal_achieved:
-        #     return
+        else:
+            return Command.PASS, None
 
     def first_turn(self, bm, gm):
         """The set of instructions on the first turn of the player.
@@ -195,25 +185,42 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A tuple of (Command.CMD, data)
         """
+        # Set the central market
         self.ctr, distances = central_market()
+
+        # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
-        # TODO: There could be grey markets in the first turn, this needs to capture that
-        if self.ctr == t1_target:
-            # TODO: Build in a check for grey/black in research_turn()
-            self.target_loc = t1_target
-            return self.research_turn()
-        else:
-            t1_next_step = self.get_next_step(t1_target)[0]
-            ns_neighbours = self.map.get_neighbours(next_step)
 
-            while next_step in (bm + gm) and ns_neighbours:
-                t1_next_step = ns_neighbours.pop()
+        # If we are already at the maximum node, research the node
+        if self.loc == t1_target:
+            return Command.RESEARCH, None
 
+        # Find the first, random white market closest to the target market
+        # This is done recursively until a white market is found
+        # On turn 1, white markets are expected
+        def first_white(tm, map_obj, bg_set, assessed=set()):
+            # return the target market if it is a white market
+            if tm not in bg_set:
+                return tm
 
-        pass
+            # get the neighbours of the target market that have not been assessed
+            # if this set less the black/grey market set is not empty,
+            # return a random target location
+            neighbour_set = set(map_obj.get_neighbours(tm)) - assessed
+            if neighbour_set - bg_set:
+                return random.choice(neighbour_set)
 
+            # otherwise, the assessed locations and all of the neighbours are black
+            # The assessed should be updated to include all neighbours
+            # and a random next_market chosen from any of the neighbour set
+            else:
+                assessed.add(tm)
+                assessed = assessed.union(neighbour_set)
+                next_market = random.choice(neighbour_set)
+                return first_white(next_market, map_obj, bg_set, assessed)
 
-
+        t1_target = first_white(t1_target, self.map, set(bm + gm))
+        return Command.MOVE_TO, self.get_next_step(t1_target)
 
     def collect_rumours(self, market_prices, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
