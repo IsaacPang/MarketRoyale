@@ -235,6 +235,9 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
         max_score = 0
         buy_amt = 0
         to_buy = None
+        tmp_inventory = inventory.copy()
+        tmp_gold = gold
+        
         for product in this_market_info.keys():                             
             if product in goal.keys():                               
                 if product in inventory.keys():                         
@@ -242,16 +245,21 @@ this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Har
                         tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product] - inventory[product])
                 else:
                     tmp_amt = min(this_market_info[product][1], gold//this_market_info[product][0], goal[product])
+            
+            tmp_inventory[prod] += tmp_amt
+            tmp_gold -= tmp_amt * thismarket_info[prod][0]  
             tmp_score = compute_score(inventory, gold, goal)
             if tmp_score >= max_score:
                 to_buy = product
                 buy_amt = tmp_amt
                 max_score = tmp_score
+        
         gold =  gold - buy_amt * this_market_info[to_buy][0]
         if to_buy in inventory.keys():
             inventory[to_buy] = inventory[to_buy] + buy_amt
         else:
             inventory[to_buy] = buy_amt
+        
         return (to_buy, buy_amt)       
 
     def compute_score(self, inventory, gold, goal):
