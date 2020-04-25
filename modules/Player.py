@@ -612,8 +612,37 @@ def test_map(size=26, seed=23624):
     map_height = 100
     res_x = 2  # Resolution to render the map at
     res_y = 3
-    node_list = list(string.ascii_uppercase)[:26]
+    node_list = list(string.ascii_uppercase)[:size]
     return Map(node_list, map_width, map_height, res_x, res_y, seed=seed)
+
+
+# This function helps output a static map for testing.
+def test_static_map():
+    class StaticMap(Map):
+        def __init__(self, node_positions, node_graph, map_width, map_height, resolution_x, resolution_y):
+            self.map_data = {}
+            self.map_width = map_width
+            self.map_height = map_height
+            self.resolution_x = resolution_x
+            self.resolution_y = resolution_y
+
+            self.map_data["node_positions"] = node_positions
+            self.map_data["node_graph"] = node_graph
+
+            self.init_circle()
+
+            self.render_map()
+
+    node_pos = {"A": (100, 50, 0),
+                "B": (10, 50, 0),
+                "C": (100, 90, 0),
+                "D": (190, 50, 0),
+                "E": (100, 10, 0)}
+    node_graph = {'A': {'B', 'C', 'D', 'E'},
+                  'B': {'A', 'C', 'E'},
+                  'C': {'A', 'B', 'D'},
+                  'D': {'A', 'C', 'E'}}
+    return StaticMap(node_pos, node_graph, 200, 100, 2, 3)
 
 
 if __name__ == "__main__":
