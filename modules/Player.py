@@ -110,8 +110,11 @@ class Player(BasePlayer):
         # collect information from other player
         self.collect_rumours(info)
 
+        print("PRINT SOMETHING!")
+
         # Determine current strategy
         bg_set = set(bm + gm)
+
         cmd = self.get_strategy(prices, bg_set)
 
         return cmd
@@ -148,7 +151,7 @@ class Player(BasePlayer):
             return self.wander(prices, bg_set)
 
         # Once we have enough information, try to achieve the goal
-        if not self.goal:
+        if not self.goal_achieved:
             buying_market = self.search_market(bg_set)
             if buying_market:
                 self.target_loc = buying_market
@@ -171,12 +174,16 @@ class Player(BasePlayer):
             else:
                 return Command.MOVE_TO, self.get_next_step(self.target_loc)
         else:
-            next_market = self.choose(bg_set, {self.loc})
-            if next_market:
-                self.target_loc = next_market
-                return self.wander(prices, bg_set)
+            if self.loc in self.researched.union(bg_set):
+                next_market = self.choose(bg_set, {self.loc})
+                if next_market:
+                    self.target_loc = next_market
+                    return self.wander(prices, bg_set)
+                else:
+                    return self.move_to_buy(prices, bg_set)
             else:
-                return self.move_to_buy(prices, bg_set)
+                self.researched.add(self.loc)
+                return Command.RESEARCH, None
 
     def choose(self, bg_set, ignore_set):
         markets = set(self.map.get_node_names())
@@ -197,7 +204,6 @@ class Player(BasePlayer):
                 if purchase_item:
                     return Command.BUY, self.purchase(prices)
                 else:
-                    self.check_goal()
                     return Command.PASS, None
             return Command.RESEARCH, None
 
@@ -228,7 +234,7 @@ class Player(BasePlayer):
         # If we are already at the maximum node, research the node
         if self.loc == t1_target:
             self.researched.add(self.loc)
-            self.target_loc = self.choose(bg_set)
+            self.target_loc = self.choose(bg_set, {self.loc})
             return Command.RESEARCH, None
 
         # Find the first, random white market closest to the target market
@@ -323,7 +329,7 @@ class Player(BasePlayer):
             for market, info in self.market_prices.items():
                 # check if markets are white
                 if market not in bg_set:
-                    for product in info.keys():
+                    for product in possible_targets.keys():
                         market_price = info[product][0]
                         min_price = possible_targets[product][1]
                         if (product in self.goal.keys()) and (market_price < min_price):
@@ -399,6 +405,7 @@ class Player(BasePlayer):
                     to_buy = product
                     buy_amt = tmp_amt
                     max_score = tmp_score
+        assert(to_buy is not None)
         if to_buy:
             # update self inventory/gold then return purchased item
             cost = buy_amt * this_market_info[to_buy][0]
