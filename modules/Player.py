@@ -53,6 +53,7 @@ from BasePlayer import BasePlayer
 from collections import defaultdict, deque
 import random
 import math
+import copy
 
 
 class Player(BasePlayer):
@@ -62,19 +63,18 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0                               # how many turns taken in game:     0,1,..*
-        self.researched = set()                     # researched markets:               set({market1, market2..})
-        self.market_prices = {}                     # market prices from self/players:  {market:{product:[price, amount]}}
-        self.inventory = defaultdict(lambda: (0, 0))# record items in inventory:        {product:[amount, asset_cost]}
-        self.gold = 0                               # gold:                             0,1,..*
-        self.score = 0                              # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False                  # indicates whether goal achieved:  True/False
-        self.visited_node = defaultdict(int)        # location visit counts:            {location: times_visited}
-        self.loc = ''                               # player's current location:        str(market location)
-        self.bonus = 10000
-        self.ctr = ''
-        self.target_loc = ''
-
+        self.turn = 0                              # how many turns taken in game:     0,1,..*
+        self.researched = set()                    # researched markets:               [market1, market2..]
+        self.market_prices = {}                    # market prices from self/players:  {market:{product:[amount, price]}}
+        self.inventory = defaultdict(lambda:(0,0)) # record items in inventory:        {product:(amount, asset_cost)}
+        self.gold = 0                              # gold:                             0,1,..*
+        self.score = 0                             # score from inventory and gold:    0,1,..*
+        self.goal_achieved = False                 # indicates whether goal achieved:  True/False
+        self.visited_node = defaultdict(int)       # location visit counts:            {location: times_visited}
+        self.loc = ''                              # player's current location
+        self.bonus = 10000                         # bonus points upon reaching goal
+        self.ctr = ''                              # the central market, currently unknown
+        self.target_loc = ''                       # target location after searching and pathing
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
@@ -187,6 +187,9 @@ class Player(BasePlayer):
         """
         # Set the central market
         self.ctr, distances = self.central_market()
+
+        # Set the score to be equal to the amount of gold
+        self.score = self.gold
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
@@ -305,32 +308,93 @@ class Player(BasePlayer):
 
         return target_market
 
-    def purchase(self, inventory, gold, prices):
-        """Return the item and anoubt to buy when player is at a destination market.
-           Update self inventory and gold too before returning.
+    def purchase(self, this_market_info):
+        """Return the item and amount to buy when player is at a destination market.
+            Update self inventory and gold too before returning.
+
+                1. Find required item to buy (item in goal and under target amount)
+                2. Calculate amount to buy
+                3. If there are multiple items to required select base on highest score 
+                   after purchase         
+                4. update self inventory, gold, and return output.
+                
+            **Note This function is guaranteed to purchase a type of product even
+            when the market couldnt meet our demand to reduce complexity as the
+            score will be same/reduced when this happens. This is achieved by
+            setting initial max_score=0.    
+                
         Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
-            goal : {product : price}
-                    dictionary of products required to acheive goal.
-            prices : {product : price}
-                    prices of item in the market.
+            1. goal: {prod1:amt1, prod2:amt2}
+                a dictionary of products required to achieve goal.
+            2. inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
+                a dictionary of products, amount of products, cost spent buying the items in inventory.            
+            3. gold : gold_amt            
+            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
+                a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-        return None
+        # TODO: the score needs to be calculated according to the current score, which is the current gold
+        #       and any other goal scores.
+        #       Perhaps include a score calculation and score attribute for the player to self track
+        max_score = 0 
+        buy_amt = 0
+        to_buy = None
+
+        # find the best item to buy
+        for product in this_market_info.keys():
+
+            # initialize dummy variables used to record after purchase inventory and gold to compute score         
+            tmp_inventory = copy.deepcopy(self.inventory)
+            tmp_gold = self.gold
+            
+            # if product is what we need
+            if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
+                # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
+                tmp_amt = min(this_market_info[product][1],
+                              self.gold // this_market_info[product][0],
+                              self.goal[product] - self.inventory[product][0])
+
+                # update dummy variables to reflect after purchase inventory and gold level
+                tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
+                                          tmp_amt * tmp_inventory[product][1] + this_market_info[product][0])
+                tmp_gold -= tmp_amt * this_market_info[product][0]
+
+                # compute score and update best item to buy
+                tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
+                if tmp_score >= max_score:
+                    to_buy = product
+                    buy_amt = tmp_amt
+                    max_score = tmp_score
+
+        assert(to_buy is not None)
+
+        # update self inventory/gold then return purchased item
+        cost = buy_amt * this_market_info[to_buy][0]
+        self.gold = self.gold - cost
+        self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
+        return to_buy, buy_amt
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
         Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
+            inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
+                a dictionary of products, amount of products, cost spent buying the items in inventory.   
             goal : {product : price}
                     dictionary of products required to acheive goal.
             gold : int
                     How many gold the player has currently.
         Output: score (int)
         """
-        pass
+        score = 0
+        # score for hitting target
+        for item in inventory.keys():
+            if inventory[item][0] >= goal[item]:
+                score += self.bonus
+
+        # include remaining gold
+        score += gold
+
+        return score
 
     def get_next_step(self, target_location):
         """Finds the fastest path by employing a breadth-first search algorithm.
@@ -480,6 +544,7 @@ def suite():
 
     # Strategy testing
     test_suite.addTest(StrategyTestCase('test_first_turn'))
+    test_suite.addTest(StrategyTestCase('test_purchase'))
 
     return test_suite
 
@@ -624,6 +689,21 @@ class StrategyTestCase(unittest.TestCase):
         cmd, next_step = p.first_turn([], [])
         self.assertEqual(cmd, Command.RESEARCH)
         self.assertIsNone(next_step)
+
+    # Test the purchase function
+    def test_purchase(self):
+        p = Player()
+        goal = {'Food': 10, 'Social': 15}
+        p.set_goal(goal)
+        p.inventory['Food'] = (5, 0)
+        p.set_gold(500.0)
+        prices = {'Food': (100, 3),
+                  'Electronics': (300, 10),
+                  'Social': (150, 5),
+                  'Hardware': (350, 5)}
+        prod, amt = p.purchase(prices)
+        self.assertEqual(prod, 'Food')
+        self.assertEqual(amt, 3)
 
 
 # This function helps output the map for testing.
