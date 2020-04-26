@@ -572,8 +572,7 @@ class KnowledgeTestCase(unittest.TestCase):
         info = {"A": {'Food': 90,
                       'Social': 60},
                 "B": {'Food': 80,
-                      'Social': 70}
-                }
+                      'Social': 70}}
         p.collect_rumours(info)
         self.assertTrue(p.market_prices)
         self.assertIsNone(p.market_prices["A"]["Food"][1])
