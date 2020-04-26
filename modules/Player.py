@@ -202,7 +202,7 @@ class Player(BasePlayer):
         # This is done recursively until a white market is found
         # On turn 1, white markets are expected
         self.target_loc = self.nearest_white(t1_target, set(bm + gm))
-        return Command.MOVE_TO, self.get_next_step(self.target_loc)[0]
+        return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
     def nearest_white(self, target_market, bg_set, assessed=set()):
         """Returns the market location closest to the target market that is white
@@ -280,7 +280,6 @@ class Player(BasePlayer):
             target_market (str): returns the target market from search. If all information on markets
                                  are black, returns None
         """
-        # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
         # get the product name which has not reached the goal
@@ -299,7 +298,7 @@ class Player(BasePlayer):
         else:
             return None
         # calculate the distances to these markets
-        dist_to_target = {market: len(self.get_next_step(market)[1])
+        dist_to_target = {market: len(self.get_path_to(market))
                           for market, price in possible_targets.values()}
         # find the closest white market to achieve the goal
         # TODO: if returns none, logic is required to find more markets and research
@@ -399,12 +398,25 @@ class Player(BasePlayer):
         return score
 
     def get_next_step(self, target_location):
+        """Returns the next step on the path required.
+        """
+        shortest_path = self.get_path_to(target_location)
+
+        # Shortest path provides the nodes to traverse in order, so the next node is the best next step
+        # If the path is of length 1, the player is starting at the target node, so the function
+        # Returns None as the next step. Use an exception here instead of if statement
+        # for lower comparison overhead
+        try:
+            adjacent_market = shortest_path[1]
+        except IndexError:
+            adjacent_market = None
+        return adjacent_market
+
+    def get_path_to(self, target_location):
         """Finds the fastest path by employing a breadth-first search algorithm.
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
-        # TODO: Update this with a check if the intermediary nodes are black or grey markets
-
         # Set the starting location as the player's current location
         start = self.loc
 
@@ -438,16 +450,7 @@ class Player(BasePlayer):
                 while current:
                     path.appendleft(current)
                     current = previous[current]
-
-                # Path provides the nodes to traverse in order, so the next node is the best next step
-                # If the path is of length 1, the player is starting at the target node, so the function
-                # Returns None as the next step. Use an exception here instead of if statement
-                # for lower comparison overhead
-                try:
-                    adjacent_market = path[1]
-                except IndexError:
-                    adjacent_market = None
-                return adjacent_market, path
+                return path
 
             # Collect the neighbours of this market and iterate over them.
             # If the neighbours have not been visited, add them to the queue
@@ -458,6 +461,7 @@ class Player(BasePlayer):
                     queue.appendleft(n)
                     visited[n] = True
                     previous[n] = current
+
 
     def dist_to(self, from_loc, to_loc):
         """Function to calculate the distance between two points
@@ -605,9 +609,11 @@ class MovementTestCase(unittest.TestCase):
         p = Player()
         p.map = test_map()
         p.loc = "A"
-        next_step, path = p.get_next_step("V")
+        target = "V"
+        next_step = p.get_next_step(target)
+        next_path = p.get_path_to(target)
         self.assertTrue(next_step in p.map.get_neighbours("A"))
-        self.assertEqual(len(path), 4)
+        self.assertEqual(len(next_path), 4)
 
     # Tests if the next step is to stay put if the player arrives.
     # Tests if the number of turns required is to stay still is 0.
@@ -615,9 +621,11 @@ class MovementTestCase(unittest.TestCase):
         p = Player()
         p.map = test_map()
         p.loc = "A"
-        next_step, path = p.get_next_step("A")
+        target = "A"
+        next_step = p.get_next_step(target)
+        next_path = p.get_path_to(target)
         self.assertIsNone(next_step)
-        self.assertEqual(len(path), 1)
+        self.assertEqual(len(next_path), 1)
 
 
 # Creates test case class for player knowledge functions
@@ -757,10 +765,11 @@ if __name__ == "__main__":
     player.map = test_map()
     player.loc = "A"
     central_market = player.central_market()[0]
-    next_step, path = player.get_next_step(central_market)
+    next_step = player.get_next_step(central_market)
+    next_path = player.get_path_to(central_market)
     player.map.pretty_print_map()
     print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
-    print(f"The quickest path is {list(path)}. This takes {len(path)} turns.")
+    print(f"The quickest path is {list(next_path)}. This takes {len(next_path)} turns.")
     print(f"The central market is {central_market}")
 
     runner = unittest.TextTestRunner()
