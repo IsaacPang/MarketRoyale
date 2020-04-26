@@ -64,14 +64,14 @@ class Player(BasePlayer):
 
         # Set additional properties
         self.turn = 0                              # how many turns taken in game:     0,1,..*
-        self.researched = []                       # researched markets:               [market1, market2..]
+        self.researched = set()                    # researched markets:               [market1, market2..]
         self.market_prices = {}                    # market prices from self/players:  {market:{product:[amount, price]}}
         self.inventory = defaultdict(lambda:(0,0)) # record items in inventory:        {product:(amount, asset_cost)}
         self.gold = 0                              # gold:                             0,1,..*
         self.score = 0                             # score from inventory and gold:    0,1,..*
         self.goal_achieved = False                 # indicates whether goal achieved:  True/False
         self.visited_node = defaultdict(int)       # location visit counts:            {location: times_visited}
-        self.loc = ''                              # player's current location:        str(market location)
+        self.loc = ''                              # player's current location
         self.bonus = 10000                         # bonus points upon reaching goal
         self.ctr = ''                              # the central market, currently unknown
         self.target_loc = ''                       # target location after searching and pathing
@@ -187,6 +187,9 @@ class Player(BasePlayer):
         """
         # Set the central market
         self.ctr, distances = self.central_market()
+
+        # Set the score to be equal to the amount of gold
+        self.score = self.gold
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
@@ -344,7 +347,7 @@ class Player(BasePlayer):
             tmp_inventory = copy.deepcopy(self.inventory)
             tmp_gold = self.gold
             
-            # if product is whatwe need
+            # if product is what we need
             if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
                 # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
                 tmp_amt = min(this_market_info[product][1],
@@ -358,7 +361,6 @@ class Player(BasePlayer):
 
                 # compute score and update best item to buy
                 tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
-                
                 if tmp_score >= max_score:
                     to_buy = product
                     buy_amt = tmp_amt
@@ -369,12 +371,7 @@ class Player(BasePlayer):
         # update self inventory/gold then return purchased item
         cost = buy_amt * this_market_info[to_buy][0]
         self.gold = self.gold - cost
-
-        if to_buy in self.inventory.keys():
-            self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
-        else:
-            self.inventory[to_buy] = (buy_amt, cost)
-
+        self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
         return to_buy, buy_amt
 
     def compute_score(self, inventory, gold, goal):
