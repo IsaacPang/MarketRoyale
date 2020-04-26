@@ -206,9 +206,10 @@ class Player(BasePlayer):
             # get the neighbours of the target market that have not been assessed
             # if this set less the black/grey market set is not empty,
             # return a random target white market
-            neighbour_set = map_obj.get_neighbours(tm) - assessed - bg_set
-            if neighbour_set:
-                return random.choice(list(neighbour_set))
+            neighbour_set = map_obj.get_neighbours(tm) - assessed
+            white_set = neighbour_set - bg_set
+            if white_set:
+                return random.choice(list(white_set))
 
             # otherwise, the assessed locations and all of the neighbours are black
             # The assessed should be updated to include all neighbours
@@ -263,20 +264,46 @@ class Player(BasePlayer):
         self.goal_achieved = True
         return None
 
-    def search_market(self, inventory, gold, location):
+    def search_market(self, bm, gm):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
         Args:
-            inventory : {product : price}
-                    dictionary of products in inventory.
-            goal : {product : price}
-                    dictionary of products required to acheive goal.
-            gold : int
-                    How many gold the player has currently.
-        Output: None
+            bm (list): list of current black markets
+            gm (list): list of current grey markets
+        Output:
+            target_market (str): returns the target market from search. If all information on markets
+                                 are black, returns None
         """
-        pass
+        # distance=len(get_next_step(self, target)[1])
+        # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
+        # self.inventory record items in inventory:        {product:[amount, asset_cost]}
+        # get the product name which has not reached the goal
+        possible_targets = {product: [None, math.inf]
+                            for product, amount in self.goal.items()
+                            if self.inventory[product][0] < amount}
+        if possible_targets:
+            for market, info in self.market_prices.items():
+                # check if markets are white
+                if market not in bm + gm:
+                    for product in info.keys():
+                        market_price = info[product][0]
+                        min_price = possible_targets[product][1]
+                        if (product in self.goal.keys()) and (market_price < min_price):
+                            possible_targets[product] = [market, market_price]
+        else:
+            return None
+        # calculate the distances to these markets
+        dist_to_target = {market: len(self.get_next_step(market)[1])
+                          for market, price in possible_targets.values()}
+        # find the closest white market to achieve the goal
+        # TODO: if returns none, logic is required to find more markets and research
+        if dist_to_target:
+            target_market = min(dist_to_target, key=dist_to_target.get)
+        else:
+            target_market = None
+
+        return target_market
 
     def purchase(self, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
@@ -391,8 +418,6 @@ class Player(BasePlayer):
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
-        # TODO: need to update location before calling function
-        # TODO: This is not the best path, this is the path that takes the fewest turns.
         # TODO: Update this with a check if the intermediary nodes are black or grey markets
 
         # Set the starting location as the player's current location
@@ -400,7 +425,6 @@ class Player(BasePlayer):
 
         # Collect all the nodes in the given map
         nodes = self.map.get_node_names()
-        assert(target_location in nodes, "Target node not found in map")
 
         # Since it is a BFS, all nodes necessarily have one previous node. This is required for the backtracking later
         # All nodes will have a not None node except the starting node
@@ -450,22 +474,23 @@ class Player(BasePlayer):
                     visited[n] = True
                     previous[n] = current
 
+    def dist_to(self, from_loc, to_loc):
+        """Function to calculate the distance between two points
+        Args:
+            from_loc (tup): (x1, y1) starting coordinates
+            to_loc (tup): (x2, y2) ending coordinates
+        Output:
+            dist (float): distance between the coordinates as a result of
+                          sqrt((x2 - x1)^2 + (y2 - y1)^2)
+            """
+        x1, y1 = from_loc
+        x2, y2 = to_loc
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
     def central_market(self):
         """Function to determine which market is at the centre of the map
         Player is meant to move to the central market toward the end of the game
         """
-        # Obtain the Euclidean distance between two points by the formula
-        # sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
-        def central_dist(x, y):
-            # TODO: Ensure that the circle closes at midpoint
-            # TODO: Probably let Andrew know that the circle needs to surround
-            #       the geometric centre
-
-            # If the map corner is (0, 0), the map central is always as below
-            cx, cy = self.map.map_width / 2, self.map.map_height / 2
-            return math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-
         # To iterate only once over each node, the minimum distance is first
         # initialised as a maximum possible distance, i.e. the corner of the
         # map. The shape of the circle is also a rectangle, equivalent to the
@@ -474,12 +499,15 @@ class Player(BasePlayer):
         # If the current minimum distance is greater than the distance of
         # the current node to the map center, reassign. This must be done
         # while keeping the angle of incident to the map center in mind
+        map_center = self.map.map_width / 2, self.map.map_height / 2
+        map_corner = self.map.map_width, self.map.map_height
         node_coords = self.map.map_data["node_positions"]
         map_ratio = self.map.map_width / self.map.map_height
-        min_dist = central_dist(self.map.map_width, self.map.map_height)
+        min_dist = self.dist_to(map_corner, map_center)
         distance_dict = dict()
         for node, coord in node_coords.items():
-            current_dist = central_dist(coord[0], coord[1])
+            coord = coord[:2]
+            current_dist = self.dist_to(coord, map_center)
             current_ratio = coord[0] / coord[1]
             distance_dict[node] = current_dist
 
@@ -509,6 +537,7 @@ class Player(BasePlayer):
 
 import unittest
 import string
+from itertools import cycle
 from Map import Map
 
 
@@ -519,6 +548,7 @@ def suite():
 
     # Map testing
     test_suite.addTest(MapTestCase('test_central'))
+    test_suite.addTest(MapTestCase('test_search_market'))
 
     # Movement testing
     test_suite.addTest(MovementTestCase('test_move'))
@@ -543,6 +573,42 @@ class MapTestCase(unittest.TestCase):
         p = Player()
         p.map = test_map()
         self.assertEqual(p.central_market()[0], "V")
+
+    def test_search_market(self):
+        p = Player()
+        p.map = test_static_map()
+        p.loc = "E"
+        prod = ["Food", "Electronics", "Social", "Hardware"]
+        goal = dict(zip(prod, [5]*len(prod)))
+        p.set_goal(goal)
+        nodes = p.map.get_node_names()
+        temp = list(zip(cycle(prod), map(list, enumerate(range(len(prod) * len(nodes))))))
+        temp2 = []
+        for i in range(len(nodes)):
+            temp2.append((nodes[i], dict(temp[(i*4):(4*(i+1))])))
+        p.market_prices = dict(temp2)
+        # p.market_prices should look like:
+        # {'A': {'Food': [0, 0],
+        #        'Electronics': [1, 1],
+        #        'Social': [2, 2],
+        #        'Hardware': [3, 3]},
+        #  'B': {'Food': [4, 4],
+        #        'Electronics': [5, 5],
+        #        'Social': [6, 6],
+        #        'Hardware': [7, 7]}}...
+        # test when inventory be empty with no bm and gm
+        target = p.search_market(bm=[], gm=[])
+        self.assertEqual(target, "A")
+        # test when black market is "A"
+        target = p.search_market(bm=["A"], gm=[])
+        self.assertEqual(target, 'B')
+        # test when grey market is "A"
+        target = p.search_market(bm=[], gm=["A"])
+        self.assertEqual(target, "B")
+        # test when goal is reached
+        p.inventory = dict(zip(prod, map(list, [(5, 0)] * len(prod))))
+        target = p.search_market(bm=[], gm=[])
+        self.assertIsNone(target)
 
 
 # Creates a test case class specifically for basic player movement.
@@ -587,8 +653,7 @@ class KnowledgeTestCase(unittest.TestCase):
         info = {"A": {'Food': 90,
                       'Social': 60},
                 "B": {'Food': 80,
-                      'Social': 70}
-                }
+                      'Social': 70}}
         p.collect_rumours(info)
         self.assertTrue(p.market_prices)
         self.assertIsNone(p.market_prices["A"]["Food"][1])
@@ -642,7 +707,6 @@ class StrategyTestCase(unittest.TestCase):
         self.assertIsNone(next_step)
 
 
-
 # This function helps output the map for testing.
 # Allows the size and seed to be mutable.
 def test_map(size=26, seed=23624):
@@ -652,8 +716,38 @@ def test_map(size=26, seed=23624):
     map_height = 100
     res_x = 2  # Resolution to render the map at
     res_y = 3
-    node_list = list(string.ascii_uppercase)[:26]
+    node_list = list(string.ascii_uppercase)[:size]
     return Map(node_list, map_width, map_height, res_x, res_y, seed=seed)
+
+
+# This function helps output a static map for testing.
+def test_static_map():
+    class StaticMap(Map):
+        def __init__(self, node_positions, node_graph, map_width, map_height, resolution_x, resolution_y):
+            self.map_data = {}
+            self.map_width = map_width
+            self.map_height = map_height
+            self.resolution_x = resolution_x
+            self.resolution_y = resolution_y
+
+            self.map_data["node_positions"] = node_positions
+            self.map_data["node_graph"] = node_graph
+
+            self.init_circle()
+
+            self.render_map()
+
+    node_pos = {"A": (100, 50, 0),
+                "B": (10, 50, 0),
+                "C": (100, 90, 0),
+                "D": (190, 50, 0),
+                "E": (100, 10, 0)}
+    node_graph = {'A': {'B', 'C', 'D', 'E'},
+                  'B': {'A', 'C', 'E'},
+                  'C': {'A', 'B', 'D'},
+                  'D': {'A', 'C', 'E'},
+                  'E': {'A', 'B', 'D'}}
+    return StaticMap(node_pos, node_graph, 200, 100, 2, 3)
 
 
 if __name__ == "__main__":
@@ -661,15 +755,13 @@ if __name__ == "__main__":
     player = Player()
     player.map = test_map()
     player.loc = "A"
-    target = "V"
-    next_step, path = player.get_next_step(target)
-    central_market = player.central_market()
+    central_market = player.central_market()[0]
+    next_step, path = player.get_next_step(central_market)
     player.map.pretty_print_map()
-    print(f"Starting at {player.loc}, the next step toward {target} is {next_step}.")
-    print(f"The optimal path is {list(path)}. This takes {len(path)} turns.")
+    print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
+    print(f"The quickest path is {list(path)}. This takes {len(path)} turns.")
     print(f"The central market is {central_market}")
 
-    # Run tests.
     runner = unittest.TextTestRunner()
     runner.run(suite())
 
