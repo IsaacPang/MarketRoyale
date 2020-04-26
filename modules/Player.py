@@ -111,24 +111,29 @@ class Player(BasePlayer):
         self.collect_rumours(info)
 
         # check if goal achieved
-        self.goal_acheived = self.check_goal(self.inventory, self.goal)
+        self.check_goal()
 
         # Determine current strategy
-        cmd = self.get_strategy(self.turn, info, bm, gm)
+        cmd = self.get_strategy(prices, bm, gm)
 
         return cmd
 
+    # TODO ______________________________________________________________________________________
+    # Complete the functions below. Please add/remove additional arguments as you need.
+    # Think of possible test cases for each of them too.
+    # __________________________________________________________________________________________
+
+    def get_strategy(self, prices, bm, gm):
+        """Returns a function that dictates the player's current strategy
+        Args:
+            prices (dict): Prices of market in current location
+            bm (list): List of black markets passed from take_turn
+            gm (list): List of grey markets passed from take_turn
+        Output:
+            cmd (tup): A tuple of Command.CMD, data, output by children functions
+        """
         # # if goal achieved, move to the market closest to the centre of the map
         # # Then do nothing
-        # if self.goal_acheived:
-        #     # invoke the function to find the central market
-        #     destination = self.central_market(self.map)
-        #     next_step, target_path = self.get_next_step(destination)
-        #     if next_step:
-        #         return Command.MOVE_TO, next_step
-        #     else:
-        #         return Command.PASS, None
-        #
         # # basic strategy if not yet acheive goal
         # else:
         #     # search for a market that player can afford
@@ -151,27 +156,45 @@ class Player(BasePlayer):
         #             # find out what we need to buy and proceed
         #             to_buy = self.purchase(self.inventory, self.gold, prices)
         #             return Command.BUY, to_buy
+        # On the first turn, return the required steps for the first turn
+        bg_set = set(bm + gm)
+        if self.turn == 1:
+            return self.first_turn(bm, gm)
 
-    # TODO ______________________________________________________________________________________
-    # Complete the functions below. Please add/remove additional arguments as you need.
-    # Think of possible test cases for each of them too.
-    # __________________________________________________________________________________________
+        # The highest priority is if the player is in a black/grey market
+        # Player moves to the closest nearest white market
+        if self.loc in bg_set:
+            self.target_loc = self.nearest_white(self.loc)
+            return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
-    def get_strategy(self, turn, bm_list, gm_list):
-        """Returns a function that dictates the player's current strategy
-        Args:
-            turn (int): The current turn
-            bm_list (list): List of black markets passed from take_turn
-            gm_list (list): List of grey markets passed from take_turn
-        Output:
-            cmd (tup): A tuple of Command.CMD, data, output by children functions
-        """
-        if turn == 1:
-            return self.first_turn(bm_list, gm_list)
+        # While we don't have information on a third of the markets in the game
+        # Move
+        if len(self.market_prices.keys()) < len(self.map.get_node_names() // 3):
+            return self.move_to_buy(prices, bg_set)
+
+        # Once we have enough information, try to achieve the goal
+        if not self.goal:
+            buying_market = self.search_market(bg_set)
+            if buying_market:
+                self.target_loc = buying_market
+                return self.move_to_buy(prices, bg_set)
         else:
-            return Command.PASS, None
+            self.target_loc = self.ctr
+            return Command.MOVE_TO, self.get_next_step(self.ctr)
 
-    def first_turn(self, bm, gm):
+    def move_to_buy(self, prices, bg_set):
+        """Function to continue along the path to the target"""
+        if self.loc != self.target_loc:
+            if self.loc not in self.researched and self.loc not in bg_set:
+                self.researched.add(self.loc)
+                return Command.RESEARCH, None
+            return Command.MOVE_TO, self.get_next_step(self.target_loc)
+        elif self.loc == self.target_loc:
+            if prices:
+                return Command.BUY, self.purchase(prices)
+            return Command.RESEARCH, None
+
+    def first_turn(self, bg_set):
         """The set of instructions on the first turn of the player.
         The player must get a sense of the map by following these steps.
         1. Store the central market on the map.
@@ -180,6 +203,7 @@ class Player(BasePlayer):
         4. Set the next node as the next step.
         5. If the current location is a terminal node, switch to research strat.
         Args:
+            bg_set (set): Set of black and grey markets
             bm (list): Current list of black markets
             gm (list): Current list of grey markets
         Output:
@@ -196,12 +220,13 @@ class Player(BasePlayer):
 
         # If we are already at the maximum node, research the node
         if self.loc == t1_target:
+            self.researched.add(self.loc)
             return Command.RESEARCH, None
 
         # Find the first, random white market closest to the target market
         # This is done recursively until a white market is found
         # On turn 1, white markets are expected
-        self.target_loc = self.nearest_white(t1_target, set(bm + gm))
+        self.target_loc = self.nearest_white(t1_target, bg_set)
         return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
     def nearest_white(self, target_market, bg_set, assessed=set()):
@@ -269,13 +294,12 @@ class Player(BasePlayer):
         self.goal_achieved = True
         return None
 
-    def search_market(self, bm, gm):
+    def search_market(self, bg_set):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
         Args:
-            bm (list): list of current black markets
-            gm (list): list of current grey markets
+            bg_set (set): Set of black and grey markets
         Output:
             target_market (str): returns the target market from search. If all information on markets
                                  are black, returns None
@@ -289,7 +313,7 @@ class Player(BasePlayer):
         if possible_targets:
             for market, info in self.market_prices.items():
                 # check if markets are white
-                if market not in bm + gm:
+                if market not in bg_set:
                     for product in info.keys():
                         market_price = info[product][0]
                         min_price = possible_targets[product][1]
@@ -417,6 +441,7 @@ class Player(BasePlayer):
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
+        # TODO: add some sort of priority queue with weights according to the market color
         # Set the starting location as the player's current location
         start = self.loc
 
@@ -587,17 +612,14 @@ class MapTestCase(unittest.TestCase):
         #        'Social': [6, 6],
         #        'Hardware': [7, 7]}}...
         # test when inventory be empty with no bm and gm
-        target = p.search_market(bm=[], gm=[])
+        target = p.search_market(set())
         self.assertEqual(target, "A")
         # test when black market is "A"
-        target = p.search_market(bm=["A"], gm=[])
+        target = p.search_market(set("A"))
         self.assertEqual(target, 'B')
-        # test when grey market is "A"
-        target = p.search_market(bm=[], gm=["A"])
-        self.assertEqual(target, "B")
         # test when goal is reached
         p.inventory = dict(zip(prod, map(list, [(5, 0)] * len(prod))))
-        target = p.search_market(bm=[], gm=[])
+        target = p.search_market(set())
         self.assertIsNone(target)
 
 
@@ -678,25 +700,27 @@ class StrategyTestCase(unittest.TestCase):
         p.loc = "V"
 
         # move to the furthest node, U
-        cmd, _ = p.first_turn(bm=[], gm=[])
+        cmd, _ = p.first_turn(set())
         self.assertEqual(cmd, Command.MOVE_TO)
         self.assertEqual(p.target_loc, "U")
 
         # move to the furthest node from V that is not U
-        cmd, _ = p.first_turn(bm=["U"], gm=[])
+        cmd, _ = p.first_turn(set(["U"]))
         self.assertEqual(cmd, Command.MOVE_TO)
         self.assertNotEqual(p.target_loc, "U")
         self.assertNotEqual(p.target_loc, "V")
 
         # move to the furthest node from V that is not U or its neighbours
-        cmd, _ = p.first_turn(bm=["U"], gm=list(p.map.get_neighbours("U")))
+        bm = ["U"]
+        gm = list(p.map.get_neighbours("U"))
+        cmd, _ = p.first_turn(set(bm + gm))
         self.assertEqual(cmd, Command.MOVE_TO)
         self.assertNotEqual(p.target_loc, "U")
         self.assertNotEqual(p.target_loc, "V")
 
         # stay at the node and research
         p.loc = "U"
-        cmd, next_step = p.first_turn([], [])
+        cmd, next_step = p.first_turn(set())
         self.assertEqual(cmd, Command.RESEARCH)
         self.assertIsNone(next_step)
 
