@@ -278,10 +278,8 @@ class Player(BasePlayer):
         # distance=len(get_next_step(self, target)[1])
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
-        max_price = math.inf
-        initial_name = ''
         # get the product name which has not reached the goal
-        possible_targets = {product: [initial_name, max_price]
+        possible_targets = {product: [None, math.inf]
                             for product, amount in self.goal.items()
                             if self.inventory[product][0] < amount}
         if possible_targets:
