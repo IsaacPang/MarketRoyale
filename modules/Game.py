@@ -148,9 +148,9 @@ class Game:
             random.shuffle(temp)
             for p_id,p_info in temp:
 
-                if self.verbose:
-                    self.map.render_map()
-                    self.map.pretty_print_map()
+                # if self.verbose:
+                    # self.map.render_map()
+                    # self.map.pretty_print_map()
 
                 msg = []
 
@@ -241,13 +241,13 @@ class Game:
             s += "loc={:20s}, N={:3d}, Inv={}\n".format(p[INFO_LOC], p[INFO_N], p[INFO_INV])
 
         s += bar
-        for node,m in self.markets.items():
-            s += "{:20s}: ".format(node)
-            ps = m.get_prices()  # dict with product:price
-            for prod in ps:
-                am = m.amounts[prod]
-                s += "{}:{:5d} ".format(prod, am)
-            s += "\n"
+        # for node,m in self.markets.items():
+        #     s += "{:20s}: ".format(node)
+        #     ps = m.get_prices()  # dict with product:price
+        #     for prod in ps:
+        #         am = m.amounts[prod]
+        #         s += "{}:{:5d} ".format(prod, am)
+        #     s += "\n"
 
         s += "\n\n"
 
