@@ -2,7 +2,7 @@ import threading
 import multiprocessing
 import platform
 
-TIME = 5   # seconds for one turn
+TIME = 0.1   # seconds for one turn
 
 class Timer():
     def call_timeout(timeout, func, args=(), kwargs={}):

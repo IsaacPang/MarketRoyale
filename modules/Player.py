@@ -110,11 +110,9 @@ class Player(BasePlayer):
         # collect information from other player
         self.collect_rumours(info)
 
-        # check if goal achieved
-        self.check_goal()
-
         # Determine current strategy
-        cmd = self.get_strategy(prices, bm, gm)
+        bg_set = set(bm + gm)
+        cmd = self.get_strategy(prices, bg_set)
 
         return cmd
 
@@ -123,7 +121,7 @@ class Player(BasePlayer):
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
 
-    def get_strategy(self, prices, bm, gm):
+    def get_strategy(self, prices, bg_set):
         """Returns a function that dictates the player's current strategy
         Args:
             prices (dict): Prices of market in current location
@@ -132,7 +130,9 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A tuple of Command.CMD, data, output by children functions
         """
-        bg_set = set(bm + gm)
+        # check if goal achieved
+        self.check_goal()
+
         if self.turn == 1:
             return self.first_turn(bg_set)
 
@@ -152,7 +152,7 @@ class Player(BasePlayer):
             buying_market = self.search_market(bg_set)
             if buying_market:
                 self.target_loc = buying_market
-                return self.move_to_buy(prices)
+                return self.move_to_buy(prices, bg_set)
             else:
                 return self.wander(prices, bg_set)
         else:
@@ -171,29 +171,34 @@ class Player(BasePlayer):
             else:
                 return Command.MOVE_TO, self.get_next_step(self.target_loc)
         else:
-            next_market = self.choose(bg_set)
+            next_market = self.choose(bg_set, {self.loc})
             if next_market:
                 self.target_loc = next_market
                 return self.wander(prices, bg_set)
             else:
-                return self.move_to_buy(prices)
+                return self.move_to_buy(prices, bg_set)
 
-    def choose(self, bg_set):
+    def choose(self, bg_set, ignore_set):
         markets = set(self.map.get_node_names())
         researched = self.researched
-        avail = list(markets - researched - bg_set)
+        avail = list(markets - researched - bg_set - ignore_set)
         if avail:
             return random.choice(avail)
         else:
             return None
 
-    def move_to_buy(self, prices):
+    def move_to_buy(self, prices, bg_set):
         """Function to continue along the path to the target"""
         if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
         elif self.loc == self.target_loc:
             if prices:
-                return Command.BUY, self.purchase(prices)
+                purchase_item = self.purchase(prices)
+                if purchase_item:
+                    return Command.BUY, self.purchase(prices)
+                else:
+                    self.check_goal()
+                    return Command.PASS, None
             return Command.RESEARCH, None
 
     def first_turn(self, bg_set):
@@ -365,7 +370,7 @@ class Player(BasePlayer):
         # TODO: the score needs to be calculated according to the current score, which is the current gold
         #       and any other goal scores.
         #       Perhaps include a score calculation and score attribute for the player to self track
-        max_score = 0 
+        max_score = -math.inf
         buy_amt = 0
         to_buy = None
 
@@ -394,14 +399,14 @@ class Player(BasePlayer):
                     to_buy = product
                     buy_amt = tmp_amt
                     max_score = tmp_score
-
-        assert(to_buy is not None)
-
-        # update self inventory/gold then return purchased item
-        cost = buy_amt * this_market_info[to_buy][0]
-        self.gold = self.gold - cost
-        self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
-        return to_buy, buy_amt
+        if to_buy:
+            # update self inventory/gold then return purchased item
+            cost = buy_amt * this_market_info[to_buy][0]
+            self.gold = self.gold - cost
+            self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
+            return to_buy, int(buy_amt)
+        else:
+            return None
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
