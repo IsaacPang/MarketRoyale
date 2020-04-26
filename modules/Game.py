@@ -13,7 +13,7 @@ import string
 import traceback
 from Timer import Timer, silence_stdout
 
-NUM_TURNS = 300
+NUM_TURNS = 30
 
 START_GOLD = sum([sum(P_BOUNDS[k])/2 * sum(A_BOUNDS[k])/2 for k in PRODUCTS])
 

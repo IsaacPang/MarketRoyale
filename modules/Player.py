@@ -132,62 +132,64 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A tuple of Command.CMD, data, output by children functions
         """
-        # # if goal achieved, move to the market closest to the centre of the map
-        # # Then do nothing
-        # # basic strategy if not yet acheive goal
-        # else:
-        #     # search for a market that player can afford
-        #     destination = self.search_market(self.inventory, self.gold, self.goal)
-        #
-        #     # obtains the next step and the path to the target destination
-        #     # the target path will be required for some optimisation in future
-        #     next_step, target_path = self.get_next_step(destination)
-        #     # If the function returns a next step, player must go to the next step.
-        #     # Otherwise, the player is already at the destination. Determine if research is required.
-        #     if next_step:
-        #         return Command.MOVE_TO, next_step
-        #
-        #     else:
-        #         # reseach market if haven't
-        #         if location not in self.researched:
-        #             self.researched.append(location)
-        #             return Command.RESEARCH, location
-        #         else:
-        #             # find out what we need to buy and proceed
-        #             to_buy = self.purchase(self.inventory, self.gold, prices)
-        #             return Command.BUY, to_buy
-        # On the first turn, return the required steps for the first turn
         bg_set = set(bm + gm)
         if self.turn == 1:
-            return self.first_turn(bm, gm)
+            return self.first_turn(bg_set)
 
         # The highest priority is if the player is in a black/grey market
         # Player moves to the closest nearest white market
         if self.loc in bg_set:
-            self.target_loc = self.nearest_white(self.loc)
+            self.target_loc = self.nearest_white(self.loc, bg_set)
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
         # While we don't have information on a third of the markets in the game
         # Move
-        if len(self.market_prices.keys()) < len(self.map.get_node_names() // 3):
-            return self.move_to_buy(prices, bg_set)
+        if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 3:
+            return self.wander(prices, bg_set)
 
         # Once we have enough information, try to achieve the goal
         if not self.goal:
             buying_market = self.search_market(bg_set)
             if buying_market:
                 self.target_loc = buying_market
-                return self.move_to_buy(prices, bg_set)
+                return self.move_to_buy(prices)
+            else:
+                return self.wander(prices, bg_set)
         else:
             self.target_loc = self.ctr
-            return Command.MOVE_TO, self.get_next_step(self.ctr)
+            next_step = self.get_next_step(self.ctr)
+            if next_step:
+                return Command.MOVE_TO, self.get_next_step(self.ctr)
+            else:
+                return Command.PASS, None
 
-    def move_to_buy(self, prices, bg_set):
-        """Function to continue along the path to the target"""
+    def wander(self, prices, bg_set):
         if self.loc != self.target_loc:
-            if self.loc not in self.researched and self.loc not in bg_set:
+            if self.loc not in self.researched.union(bg_set):
                 self.researched.add(self.loc)
                 return Command.RESEARCH, None
+            else:
+                return Command.MOVE_TO, self.get_next_step(self.target_loc)
+        else:
+            next_market = self.choose(bg_set)
+            if next_market:
+                self.target_loc = next_market
+                return self.wander(prices, bg_set)
+            else:
+                return self.move_to_buy(prices)
+
+    def choose(self, bg_set):
+        markets = set(self.map.get_node_names())
+        researched = self.researched
+        avail = list(markets - researched - bg_set)
+        if avail:
+            return random.choice(avail)
+        else:
+            return None
+
+    def move_to_buy(self, prices):
+        """Function to continue along the path to the target"""
+        if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
         elif self.loc == self.target_loc:
             if prices:
@@ -221,6 +223,7 @@ class Player(BasePlayer):
         # If we are already at the maximum node, research the node
         if self.loc == t1_target:
             self.researched.add(self.loc)
+            self.target_loc = self.choose(bg_set)
             return Command.RESEARCH, None
 
         # Find the first, random white market closest to the target market
@@ -239,7 +242,8 @@ class Player(BasePlayer):
         # get the neighbours of the target market that have not been assessed
         # if this set less the black/grey market set is not empty,
         # return a random target white market
-        neighbour_set = self.map.get_neighbours(target_market) - assessed
+        neighbours = self.map.get_neighbours(target_market)
+        neighbour_set = neighbours - assessed
         white_set = neighbour_set - bg_set
         if white_set:
             return random.choice(list(white_set))
@@ -250,7 +254,7 @@ class Player(BasePlayer):
         else:
             assessed.add(target_market)
             assessed = assessed.union(neighbour_set)
-            next_market = random.choice(list(neighbour_set))
+            next_market = random.choice(list(neighbours))
             return self.nearest_white(next_market, bg_set, assessed)
 
     def collect_rumours(self, info):
@@ -267,7 +271,7 @@ class Player(BasePlayer):
                 if not self.market_prices.get(market):
                     self.market_prices[market] = {k: (v, None) for k, v in information.items()}
 
-    def save_market_prices(self, market, prices):
+    def save_market_prices(self, prices):
         """Save current market prices information into self.market_prices.
         Args:
             market (str): market location
@@ -276,7 +280,7 @@ class Player(BasePlayer):
         Output: None
         """
         if prices:
-            self.market_prices[market] = prices
+            self.market_prices[self.loc] = prices
 
     def check_goal(self):
         """Check if goal is acheived by comparing inventory and goal.
@@ -432,7 +436,7 @@ class Player(BasePlayer):
         # for lower comparison overhead
         try:
             adjacent_market = shortest_path[1]
-        except IndexError:
+        except (IndexError, TypeError):
             adjacent_market = None
         return adjacent_market
 
@@ -683,10 +687,10 @@ class KnowledgeTestCase(unittest.TestCase):
     # Tests if the save_market_prices function works correctly
     def test_prices(self):
         p = Player()
-        market = "A"
+        p.loc = "A"
         prices = {'Food': [90, 100],
                   'Social': [60, 50]}
-        p.save_market_prices(market, prices)
+        p.save_market_prices(prices)
         self.assertTrue(p.market_prices)
         self.assertEqual(p.market_prices["A"]["Food"], [90, 100])
 
