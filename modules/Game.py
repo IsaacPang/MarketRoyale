@@ -11,6 +11,7 @@ from Map import Map
 import copy
 import string
 import traceback
+from Timer import Timer, silence_stdout
 
 NUM_TURNS = 300
 
@@ -20,7 +21,7 @@ GOAL_BONUS = 10000
 
 OUTSIDE_CIRCLE_PENALTY = 100  # gold per turn outside circle
 
-EXCHANGE_LENGTH = 3   # number of markets to exchange information upon from each co-located player
+EXCHANGE_LENGTH = 4   # number of markets to exchange information upon from each co-located player
 
     # Indexes into player tuple
 INFO_LOC = 0   # location str
@@ -102,7 +103,6 @@ class Game:
     def get_prices_from_other_players(self, p_id):
         """@return Dictionary node:price_dict, where price_dict = {product:price} as str:float
         """
-        #determine whihc part info will pass
         players_here = [p_info for p_id,p_info in self.players.items() if p_info[INFO_LOC] == self.players[p_id][INFO_LOC]]
 
         ret_value = {}
@@ -155,7 +155,7 @@ class Game:
                 msg = []
 
                 if p_info[INFO_INV][INV_GOLD] < 0:
-                    i = round(-self.interest * p_info[INFO_INV][INV_GOLD])
+                    i = -self.interest * p_info[INFO_INV][INV_GOLD]
                     msg.append("Interest of {} charged.".format(i))
                     p_info[INFO_INV][INV_GOLD] -= i
 
@@ -176,7 +176,12 @@ class Game:
                     this_market = {}
 
                 try:
-                    cmd,data = p_info[INFO_OBJ].take_turn(p_info[INFO_LOC], this_market, copy.deepcopy(other_info), bnodes, gnodes)
+                    with silence_stdout():
+                        res = Timer.timeout(p_info[INFO_OBJ].take_turn, (p_info[INFO_LOC], this_market, copy.deepcopy(other_info), bnodes, gnodes))
+                        #res = p_info[INFO_OBJ].take_turn(p_info[INFO_LOC], this_market, copy.deepcopy(other_info), bnodes, gnodes)
+                        if res is None:
+                            raise Exception('Timeout', 'take_turn')
+                        cmd,data = res
                 except Exception:
                     return((p_info[INFO_OBJ], traceback.format_exc()))
 
@@ -225,7 +230,7 @@ class Game:
                 print(self)
 
         return self.game_result()
-
+            
     def __repr__(self):
         s = "Game: num_players={} turn_num={:4d}\n".format(self.num_players, self.turn_num)
 
