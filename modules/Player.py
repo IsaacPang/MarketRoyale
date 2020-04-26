@@ -147,7 +147,7 @@ class Player(BasePlayer):
 
         # While we don't have information on a third of the markets in the game
         # Move
-        if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 3:
+        if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 2:
             return self.wander(prices, bg_set)
 
         # Once we have enough information, try to achieve the goal
