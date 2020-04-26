@@ -396,20 +396,6 @@ class Player(BasePlayer):
 
         return score
 
-    ## for example, take following as inputs:
-    #goal = {'Food':10, 'Social':15}
-
-    #inventory = defaultdict(lambda:(0,0))
-    #inventory['Food'] = (5,0)
-
-    #gold = 500
-    #this_market_info = {'Food':(100,3),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
-    #print('------------------------------------------------------')
-    #print(purchase(0, goal, inventory, gold, this_market_info))
-    #print('------------------------------------------------------')
-    #print('inventory = ', inventory)
-    ## this outcome is: ('Food', 3)
-
     def get_next_step(self, target_location):
         """Finds the fastest path by employing a breadth-first search algorithm.
         Since all edges are currently unweighted, only a simplified breadth-first
@@ -558,6 +544,7 @@ def suite():
 
     # Strategy testing
     test_suite.addTest(StrategyTestCase('test_first_turn'))
+    test_suite.addTest(StrategyTestCase('test_purchase'))
 
     return test_suite
 
@@ -702,6 +689,21 @@ class StrategyTestCase(unittest.TestCase):
         cmd, next_step = p.first_turn([], [])
         self.assertEqual(cmd, Command.RESEARCH)
         self.assertIsNone(next_step)
+
+    # Test the purchase function
+    def test_purchase(self):
+        p = Player()
+        goal = {'Food': 10, 'Social': 15}
+        p.set_goal(goal)
+        p.inventory['Food'] = (5, 0)
+        p.set_gold(500.0)
+        prices = {'Food': (100, 3),
+                  'Electronics': (300, 10),
+                  'Social': (150, 5),
+                  'Hardware': (350, 5)}
+        prod, amt = p.purchase(prices)
+        self.assertEqual(prod, 'Food')
+        self.assertEqual(amt, 3)
 
 
 # This function helps output the map for testing.
