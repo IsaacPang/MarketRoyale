@@ -201,30 +201,32 @@ class Player(BasePlayer):
         # Find the first, random white market closest to the target market
         # This is done recursively until a white market is found
         # On turn 1, white markets are expected
-        def nearest_white(tm, map_obj, bg_set, assessed=set()):
-            # return the target market if it is a white market
-            if tm not in bg_set:
-                return tm
-
-            # get the neighbours of the target market that have not been assessed
-            # if this set less the black/grey market set is not empty,
-            # return a random target white market
-            neighbour_set = map_obj.get_neighbours(tm) - assessed
-            white_set = neighbour_set - bg_set
-            if white_set:
-                return random.choice(list(white_set))
-
-            # otherwise, the assessed locations and all of the neighbours are black
-            # The assessed should be updated to include all neighbours
-            # and a random next_market chosen from any of the neighbour set
-            else:
-                assessed.add(tm)
-                assessed = assessed.union(neighbour_set)
-                next_market = random.choice(list(neighbour_set))
-                return nearest_white(next_market, map_obj, bg_set, assessed)
-
-        self.target_loc = nearest_white(t1_target, self.map, set(bm + gm))
+        self.target_loc = self.nearest_white(t1_target, set(bm + gm))
         return Command.MOVE_TO, self.get_next_step(self.target_loc)[0]
+
+    def nearest_white(self, target_market, bg_set, assessed=set()):
+        """Returns the market location closest to the target market that is white
+        If the target market is white, returns the target"""
+        # return the target market if it is a white market
+        if target_market not in bg_set:
+            return target_market
+
+        # get the neighbours of the target market that have not been assessed
+        # if this set less the black/grey market set is not empty,
+        # return a random target white market
+        neighbour_set = self.map.get_neighbours(target_market) - assessed
+        white_set = neighbour_set - bg_set
+        if white_set:
+            return random.choice(list(white_set))
+
+        # otherwise, the assessed locations and all of the neighbours are black
+        # The assessed should be updated to include all neighbours
+        # and a random next_market chosen from any of the neighbour set
+        else:
+            assessed.add(target_market)
+            assessed = assessed.union(neighbour_set)
+            next_market = random.choice(list(neighbour_set))
+            return self.nearest_white(next_market, bg_set, assessed)
 
     def collect_rumours(self, info):
         """Collect intel from other players at the same location, then store it in self.market_prices.
