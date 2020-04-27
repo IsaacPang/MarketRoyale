@@ -148,9 +148,9 @@ class Game:
             random.shuffle(temp)
             for p_id,p_info in temp:
 
-                if self.verbose:
-                    self.map.render_map()
-                    self.map.pretty_print_map()
+                # if self.verbose:
+                    # self.map.render_map()
+                    # self.map.pretty_print_map()
 
                 msg = []
 
@@ -225,9 +225,16 @@ class Game:
                     self.have_researched[p_info[INFO_LOC]].append(p_id)
 
                 if self.verbose:
-                    print("{} {}".format(p_id, msg))
+                    if msg:
+                        if len(msg) == 1:
+                            if msg[0].split()[0] == "Interest":
+                                continue
+                        print("{} {}".format(p_id, msg))
+                        print(f"Player Inventory:{dict(p_info[INFO_OBJ].inventory)}")
+                        print(f"Player Gold:{p_info[INFO_OBJ].gold}")
             if self.verbose:
-                print(self)
+                if msg:
+                    print(self)
 
         return self.game_result()
             
@@ -238,16 +245,24 @@ class Game:
         s += bar
         
         for p in self.players.values():
-            s += "loc={:20s}, N={:3d}, Inv={}\n".format(p[INFO_LOC], p[INFO_N], p[INFO_INV])
+            s += "loc={:5s}, N={:3d}, Inv={}\n".format(p[INFO_LOC], p[INFO_N], p[INFO_INV])
+            s += f"{16*' '}, Gol={p[INFO_GOAL]}\n"
+
 
         s += bar
-        for node,m in self.markets.items():
-            s += "{:20s}: ".format(node)
-            ps = m.get_prices()  # dict with product:price
-            for prod in ps:
-                am = m.amounts[prod]
-                s += "{}:{:5d} ".format(prod, am)
-            s += "\n"
+        for node, m in self.markets.items():
+            if node == p[INFO_LOC]:
+                s += "{:10s} prc: ".format(node)
+                ps = m.get_prices()  # dict with product:price
+                for prod in ps:
+                    pr = m.prices[prod]
+                    s += "{}:{:5d} ".format(prod, pr)
+                s += "\n"
+                s += "{:10s} amt: ".format(' ')
+                ps = m.get_prices()  # dict with product:price
+                for prod in ps:
+                    am = m.amounts[prod]
+                    s += "{}:{:5d} ".format(prod, am)
 
         s += "\n\n"
 
