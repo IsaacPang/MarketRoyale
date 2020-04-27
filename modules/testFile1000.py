@@ -5,7 +5,7 @@ import time
 start = time.time()
 total_res = []
 game_turns = Game.NUM_TURNS
-games_run = 1500
+games_run = 100
 for i in range(games_run):
     p1 = Player()
     p = [p1]
