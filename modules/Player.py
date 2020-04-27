@@ -253,7 +253,7 @@ class Player(BasePlayer):
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
         elif self.loc == self.target_loc:
             if prices:
-                purchase_item = self.purchase(prices)
+                purchase_item = self.goal_purchase(prices)
                 if purchase_item:
                     return Command.BUY, purchase_item
                 else:
@@ -462,7 +462,17 @@ class Player(BasePlayer):
                                           if self.inventory[product][0] > 0})
         return sell_set, buy_set
 
-    def purchase(self, this_market_info):
+    def afford_amount(self, market_prices, product):
+        """Compute the maximum amount the player can purchase of a particular product
+        at the current market"""
+        return min(market_prices[product][1],
+                   self.gold // market_prices[product][0])
+
+    def update_inv_gold(self, prices, input_inv, prod, prod_amt, input_gold, gold_amt):
+        """Helper function to update a given inventory and gold"""
+        pass
+
+    def goal_purchase(self, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
             Update self inventory and gold too before returning.
 
@@ -504,9 +514,8 @@ class Player(BasePlayer):
             # if product is what we need
             if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
                 # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
-                tmp_amt = min(int(this_market_info[product][1]),
-                              int(self.gold // this_market_info[product][0]),
-                              int(self.goal[product] - self.inventory[product][0]))
+                tmp_amt = min(int(self.afford_amount(this_market_info, product)),
+                              self.goal[product] - self.inventory[product][0])
 
                 # update dummy variables to reflect after purchase inventory and gold level
                 tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
@@ -864,7 +873,7 @@ class StrategyTestCase(unittest.TestCase):
                   'Electronics': (300, 10),
                   'Social': (150, 5),
                   'Hardware': (350, 5)}
-        prod, amt = p.purchase(prices)
+        prod, amt = p.goal_purchase(prices)
         self.assertEqual(prod, 'Food')
         self.assertEqual(amt, 3)
 
