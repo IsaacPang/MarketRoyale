@@ -72,6 +72,7 @@ class Player(BasePlayer):
         self.black_penalty = 100                      # penalty for being in a black market
         self.interest = 1.1                           # interest rate for overdrawn gold
         self.blacklist = defaultdict(set)             # set of markets with no amount for each product
+        self.price_stats = {}                         # statistics of current market prices
 
     def take_turn(self, location, prices, info, bm, gm):
         """Player takes a turn with (hopefully) informed choices.
@@ -104,12 +105,10 @@ class Player(BasePlayer):
         # collect information from other player
         self.collect_rumours(info)
 
-        print("PRINT SOMETHING!")
-
         # Determine current strategy
-        cmd = self.get_strategy(prices, bm, gm)
+        cmd, data = self.get_strategy(prices, bm, gm)
 
-        return cmd
+        return cmd, data
 
     def get_strategy(self, prices, bm, gm):
         """Returns a function that dictates the player's current strategy
@@ -150,7 +149,6 @@ class Player(BasePlayer):
 
         # Next highest priority:
         # Towards the end of the game, the player must go to the centre of the map
-        # TODO: dump excess stock
         if self.turn == self.max_turn - 20:
             if self.loc != self.ctr:
                 return self.move_to_ctr()
@@ -161,6 +159,9 @@ class Player(BasePlayer):
         # While we don't have information on a third of the markets in the game. Move around and research
         if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 2:
             return self.wander(prices, bg_set)
+
+        # Update the statistical knowledge of the player
+        self.update_stats(bg_set)
 
         # Once we have enough information, try to achieve the goal
         if not self.goal_achieved:
@@ -176,7 +177,7 @@ class Player(BasePlayer):
         else:
             buy, sell = self.buy_sell(prices)
             if buy and self.afford_anything(prices, buy):
-                return self.move_to_ctr() # need to work this out
+                return self.move_to_ctr() # TODO: need to work this out
             return self.move_to_ctr()
 
     def move_to_ctr(self):
@@ -198,7 +199,6 @@ class Player(BasePlayer):
                                                                  self.gold, action=1)
                 return Command.SELL, (product, to_dump)
         return Command.PASS, None
-
 
     def cut_losses(self, prices):
         # prices = {product: (prices, amounts)}
@@ -225,23 +225,15 @@ class Player(BasePlayer):
         return to_sell, sell_num
 
     def wander(self, prices, bg_set):
-        if self.loc != self.target_loc:
-            if self.loc not in self.researched.union(bg_set):
-                self.researched.add(self.loc)
-                return Command.RESEARCH, None
-            else:
-                return Command.MOVE_TO, self.get_next_step(self.target_loc)
+        if self.loc not in self.researched.union(bg_set):
+            self.researched.add(self.loc)
+            return Command.RESEARCH, None
         else:
-            if self.loc in self.researched.union(bg_set):
-                next_market = self.choose(bg_set, {self.loc})
-                if next_market:
-                    self.target_loc = next_market
-                    return self.wander(prices, bg_set)
-                else:
-                    return self.move_to_buy(prices)
+            if self.loc != self.target_loc:
+                return Command.MOVE_TO, self.get_next_step(self.target_loc)
             else:
-                self.researched.add(self.loc)
-                return Command.RESEARCH, None
+                self.target_loc = self.choose(bg_set, {self.loc})
+                return self.wander(prices, bg_set)
 
     def choose(self, bg_set, ignore_set):
         markets = set(self.map.get_node_names())
@@ -250,8 +242,8 @@ class Player(BasePlayer):
         if avail:
             return random.choice(avail)
         else:
-            # TODO: At a point in the game when this is none, just move to a researched market
-            return None
+            avail = list(markets - bg_set - ignore_set)
+            return random.choice(avail)
 
     def move_to_buy(self, prices):
         """Function to continue along the path to the target"""
@@ -397,15 +389,12 @@ class Player(BasePlayer):
                             if all([market_price < min_price]):
                                 possible_targets[product] = (market, market_price)
         else:
-            # Return None if all inventory items have been reached.
             # TODO: Need to add code for what possible targets are when the goal is reached
             return None
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
                           for market, prices in possible_targets.values()
                           if market}
-        # find the closest white market to achieve the goal
-        # TODO: if returns none, logic is required to find more markets and research
         if dist_to_target:
             target_market = min(dist_to_target, key=dist_to_target.get)
         else:
@@ -413,14 +402,32 @@ class Player(BasePlayer):
 
         return target_market
 
+    def update_stats(self, bg_set):
+        """Function to update player knowledge on statistics of the market
+        The only useful information to the player is a target region where
+        the player can actually do business.
+        """
+        product_price = defaultdict(list)
+        target_region = set(self.market_prices.keys()) - bg_set
+        for market in target_region:
+            for product in self.market_prices[market].keys():
+                product_price[product].append(self.market_prices[market][product][0])
+
+        # Store the statistical information of the products
+        # price stats are: {product: (price variance, 75th percentile, 25th percentile)
+        self.price_stats = {product: (np.var(product_price[product]),
+                                      np.percentile(product_price[product], 75),
+                                      np.percentile(product_price[product], 25))
+                            for product in product_price.keys()}
+        return None
+
     def buy_sell(self, prices):
         """ The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
         Selling is only executed in the later periods when we have sufficient amount of info AND goal 
         is completed. To check if a product worth trading, compute the variances for the product prices across
         all the markets. If the variance is small, it implies the price for the product is stable, so no much
         space for arbitrage and we don't have to bother with this product.
-        
-        Step 1:  compute the variances of the product price list (order by their variance in the descending order)
+        Step 1:  Order variance knowledge of the market in descending order
         Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
         Step 3:  Check if the market sells the target list products 
                  if yes, go to step 4
@@ -435,19 +442,6 @@ class Player(BasePlayer):
         Step 6: Sell the target products
     
         """
-        # step 1
-        product_price = defaultdict(list)
-        for market, market_items in self.market_prices.items():
-            for product in market_items.keys():
-                product_price[product].append(self.market_prices[market][product][0])
-
-        # Store the statistical information of the products
-        # price stats are: {product: (price variance, 75th percentile, 25th percentile)
-        self.price_stats = {product: (np.var(product_price[product]),
-                                      np.percentile(product_price[product], 75),
-                                      np.percentile(product_price[product], 25))
-                            for product in product_price.keys()}
-
         # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
         target_list = sorted(self.price_stats.items(), key=lambda x: -x[1][0])[:5]
         target_name = [product[0] for product in target_list]
