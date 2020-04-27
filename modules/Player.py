@@ -404,80 +404,63 @@ class Player(BasePlayer):
         return target_market
 
     def buy_sell(self, prices):
-        """Return the item and amount to sell
-        """
-        # ## example input info
-        # goal = {'Food':10, 'Social':15}
-        # inventory = {'Food':5}
-        # gold = 1000
-        # this_market_info = {'Food':(50,10),'Electronics':(300,10),'Social':(150,5), 'Hardware':(350,5)}
-        # all_market_info ={market_A:{'Food':(50,10),'Electronics':(300,10)}, market_B: ...}
-        """
-        The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
+        """ The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
         Selling is only executed in the later periods when we have sufficient amount of info AND goal 
-        is completed. To check if a product worths trading, compute the variances for the product prices across
+        is completed. To check if a product worth trading, compute the variances for the product prices across
         all the markets. If the variance is small, it implies the price for the product is stable, so no much
         space for arbitrage and we don't have to bother with this product.
         
-        Step 1:  compute the variances of the product price list (orderer by their variance in the descending order)
+        Step 1:  compute the variances of the product price list (order by their variance in the descending order)
         Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
         Step 3:  Check if the market sells the target list products 
                  if yes, go to step 4
         Step 4:  Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
-                 Decision making: if the price at this market is above eg. the 75th percentile of the all the prices for this product,
-                                  it suggests it is the right place to sell
-                                  --- Implication: if it's below 25th percentile, possibly a right place to buy
-
-                 if yes, go to step 5
+                 Decision making:
+                    If the price at this market is above eg. the 75th percentile of the all the prices for this product,
+                    it suggests it is the right place to sell
+                    --- Implication: if it's below 25th percentile, possibly a right place to buy
+                 If yes, go to step 5
         Step 5:  Check if our inventory contains the target products which the market has
                  If yes, go to step 6
         Step 6: Sell the target products
     
         """
         # step 1
-        product_price = {}
+        product_price = defaultdict(list)
         for market, market_items in self.market_prices.items():
             for product in market_items.keys():
                 if product in product_price.keys():
-                    product_price[product].append(self.market_prices[market][product][1])
+                    product_price[product].append(self.market_prices[market][product][0])
 
-                else:
-                    product_price[product]=[self.market_prices[market][product][1]]
-        price_variance={}
-        for product in product_price.keys():
-            price_variance[product]= np.var(product_price[product])
+        # Store the statistical information of the products
+        # price stats are: {product: (price variance, 75th percentile, 25th percentile)
+        price_stats = {product: (np.var(product_price[product]),
+                                 np.percentile(product_price[product], 75),
+                                 np.percentile(product_price[product], 25))
+                       for product in product_price.keys()}
 
         # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
-        price_variance.sort(key= lambda x: -x[1])
-        target_list = price_variance[:4]
-        targetname = [product[0] for product in target_list]
+        target_list = sorted(price_stats.items(), key=lambda x: -x[1][0])[:5]
+        target_name = {product[0] for product in target_list}
+
         # Step 3: Check if the market sells the target list products
-        to_trade = []
-        for target in targetname:
-            for product in prices.keys():
-                if target == product:
-                    to_trade.append(target)
+        to_trade = {target for target in target_name if prices.get(target)}
+
         # if the market doesn't sell the target products, function ends
         if not to_trade:
             return False
+
         # step 4: check if it's the right market to sell/buy
-        sell_now = []
-        buy_now = []
-        for product in to_trade:
-            if prices[product][1] >= np.percentile(product_price[product], 75):
-                sell_now.append(product)
-            elif prices[product][1] <= np.percentile(product_price[product], 25):
-                buy_now.append(product)
-            else:
-                return False
+        sell_now = {product for product in to_trade
+                    if prices[product][0] >= price_stats[product][1]}
+        buy_set = {product for product in to_trade
+                   if prices[product][0] <= price_stats[product][2]}
 
         # step 5: Check if our inventory contains the target products which the market has
-        sell_list = []
-        for product in self.inventory.keys():
-            for target in sell_now:
-                if product == target:
-                    sell_list.append(product)
-        return [sell_list, buy_now]
+        # Also check if the we have some items to sell in inventory
+        sell_set = sell_now.intersection({product for product in self.inventory.keys()
+                                          if self.inventory[product][0] > 0})
+        return sell_set, buy_set
 
     def purchase(self, this_market_info):
         """Return the item and amount to buy when player is at a destination market.
