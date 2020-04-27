@@ -38,14 +38,6 @@ Authors: Syndicate 8 - MBusA2020 Module 2
              Isaac Pang          (i.pang2@student.unimelb.edu.au)
              Tann Tan            (h.tan49@student.unimelb.edu.au)
              Grace Zhu           (grace.zhu@student.unimelb.edu.au)
-
-TODO List:
-    - Refer to code comments
-    - Update docstrings
-
-Dream TODO List:
-    - Machine Learning to predict where to go, maybe
-    - A*/BFS for optimisation of movement
 """
 
 import Command
@@ -81,9 +73,6 @@ class Player(BasePlayer):
         self.interest = 1.1                           # interest rate for overdrawn gold
         self.blacklist = defaultdict(set)             # set of markets with no amount for each product
 
-    # TODO _________________________________________________________________________________
-    # Add logic for selling. Most of it will be reverse of buying so leave it for now.
-    # ______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
         """Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -121,11 +110,6 @@ class Player(BasePlayer):
         cmd = self.get_strategy(prices, bm, gm)
 
         return cmd
-
-    # TODO ______________________________________________________________________________________
-    # Complete the functions below. Please add/remove additional arguments as you need.
-    # Think of possible test cases for each of them too.
-    # __________________________________________________________________________________________
 
     def get_strategy(self, prices, bm, gm):
         """Returns a function that dictates the player's current strategy
@@ -171,8 +155,7 @@ class Player(BasePlayer):
             if self.loc != self.ctr:
                 return self.move_to_ctr()
             else:
-                # return self.dump_stock() <- dump or pass turn
-                return self.move_to_ctr()
+                return self.dump_stock(prices)
 
         # Commence Phase 1:
         # While we don't have information on a third of the markets in the game. Move around and research
@@ -203,6 +186,19 @@ class Player(BasePlayer):
             return Command.MOVE_TO, next_step
         else:
             return Command.PASS, None
+
+    def excess_stock(self, product):
+        return int(self.inventory[product][0] - self.goal[product])
+
+    def dump_stock(self, prices):
+        for product in prices.keys():
+            to_dump = self.excess_stock(product)
+            if to_dump:
+                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, to_dump,
+                                                                 self.gold, action=1)
+                return Command.SELL, (product, to_dump)
+        return Command.PASS, None
+
 
     def cut_losses(self, prices):
         # prices = {product: (prices, amounts)}
