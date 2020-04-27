@@ -5,11 +5,11 @@ import time
 start = time.time()
 total_res = []
 game_turns = Game.NUM_TURNS
-games_run = 100
+games_run = 500
 for i in range(games_run):
     p1 = Player()
     p = [p1]
-    g = Game.Game(p, verbose=False)
+    g = Game.Game(p, verbose=True)
     res = g.run_game()
     if res[0] < 0:
         print(f"Player has negative score!")

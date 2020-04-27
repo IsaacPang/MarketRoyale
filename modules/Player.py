@@ -96,6 +96,10 @@ class Player(BasePlayer):
         # Increase turn counter
         self.turn += 1
 
+        # Update gold
+        if self.gold < 0:
+            self.gold = self.interest * self.gold
+
         # define the player location
         self.loc = location
 
@@ -135,13 +139,13 @@ class Player(BasePlayer):
         if self.loc in bg_set:
             if self.loc in bm:
                 self.gold -= self.black_penalty
-            self.target_loc = self.nearest_white(self.loc, bg_set)
+            if self.target_loc in bg_set or self.target_loc is None:
+                self.target_loc = self.nearest_white(self.loc, bg_set)
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
         # Next highest priority:
         # If the gold is negative, the player must cut losses by dumping inventory at the current market
         if self.gold < 0:
-            self.gold = self.interest * self.gold
             if prices:
                 return Command.SELL, self.cut_losses(prices)
             else:
@@ -164,6 +168,7 @@ class Player(BasePlayer):
         self.update_stats(bg_set)
 
         # Once we have enough information, try to achieve the goal
+        # TODO: Need to search for buy locations with statistics
         if not self.goal_achieved:
             buying_market = self.search_market(bg_set)
             if buying_market:
@@ -182,14 +187,14 @@ class Player(BasePlayer):
 
     def move_to_ctr(self):
         self.target_loc = self.ctr
-        next_step = self.get_next_step(self.target_loc)
-        if next_step:
-            return Command.MOVE_TO, next_step
+        next_move = self.get_next_step(self.target_loc)
+        if next_move:
+            return Command.MOVE_TO, next_move
         else:
             return Command.PASS, None
 
     def excess_stock(self, product):
-        return int(self.inventory[product][0] - self.goal[product])
+        return max(int(self.inventory[product][0] - self.goal[product]), 0)
 
     def dump_stock(self, prices):
         for product in prices.keys():
@@ -229,7 +234,7 @@ class Player(BasePlayer):
             self.researched.add(self.loc)
             return Command.RESEARCH, None
         else:
-            if self.loc != self.target_loc:
+            if self.loc != self.target_loc and self.target_loc is not None:
                 return Command.MOVE_TO, self.get_next_step(self.target_loc)
             else:
                 self.target_loc = self.choose(bg_set, {self.loc})
@@ -269,8 +274,6 @@ class Player(BasePlayer):
         5. If the current location is a terminal node, switch to research strat.
         Args:
             bg_set (set): Set of black and grey markets
-            bm (list): Current list of black markets
-            gm (list): Current list of grey markets
         Output:
             cmd (tup): A tuple of (Command.CMD, data)
         """
@@ -361,12 +364,14 @@ class Player(BasePlayer):
         self.goal_achieved = True
         return None
 
-    def search_market(self, bg_set):
+    def search_market(self, bg_set, action=0):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
         Args:
             bg_set (set): Set of black and grey markets
+            action (int): 0 if the player is searching to buy
+                          1 if the player is searching to sell
         Output:
             target_market (str): returns the target market from search. If all information on markets
                                  are black, returns None
@@ -374,23 +379,28 @@ class Player(BasePlayer):
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
         # get the product name which has not reached the goal
-        possible_targets = {product: [None, math.inf]
-                            for product, amount in self.goal.items()
-                            if self.inventory[product][0] < amount}
-        if possible_targets:
-            for market, info in self.market_prices.items():
-                # check if the market is white
-                if market not in bg_set:
-                    for product in possible_targets.keys():
-                        # check if market is not blacklisted for this product
-                        if market not in self.blacklist[product]:
-                            market_price = info[product][0]
-                            min_price = possible_targets[product][1]
-                            if all([market_price < min_price]):
-                                possible_targets[product] = (market, market_price)
+        if self.goal_achieved:
+            possible_targets = {product: (None, math.inf)
+                                for product in self.inventory.keys()}
         else:
-            # TODO: Need to add code for what possible targets are when the goal is reached
-            return None
+            possible_targets = {product: (None, math.inf)
+                                for product, amount in self.goal.items()
+                                if self.inventory[product][0] < amount}
+
+        target_region = set(self.market_prices.keys()) - bg_set
+        for market in target_region:
+            for product in possible_targets.keys():
+                market_price = self.market_prices[market][product][0]
+                curr_price = possible_targets[product][1]
+                # check if market is not blacklisted for this product
+                if action == 0:
+                    if market not in self.blacklist[product]:
+                        if all([market_price < curr_price]):
+                            possible_targets[product] = (market, market_price)
+                else:
+                    if market_price > curr_price:
+                        possible_targets[product] = (market, market_price)
+
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
                           for market, prices in possible_targets.values()
@@ -888,6 +898,7 @@ class KnowledgeTestCase(unittest.TestCase):
         p1.set_goal(goal)
         p1.inventory["Food"] = (5, 150)
         p1.market_prices = market_prices
+        p1.update_stats(set())
         prices = {'Food': (113, 700),
                   'Electronics': (794, 210),
                   'Social': (64, 1400),
