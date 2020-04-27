@@ -395,13 +395,13 @@ class Player(BasePlayer):
 
         # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
         price_variance.sort(key= lambda x: -x[1])
-        target_list=price_variance[:4]
-        targetname=[product[0] for product in target_list]
+        target_list = price_variance[:4]
+        targetname = [product[0] for product in target_list]
         # Step 3: Check if the market sells the target list products
-        to_trade=[]
+        to_trade = []
         for target in targetname:
             for product in prices.keys():
-                if target==product:
+                if target == product:
                     to_trade.append(target)
         # if the market doesn't sell the target products, function ends
         if not to_trade:
@@ -410,9 +410,9 @@ class Player(BasePlayer):
         sell_now = []
         buy_now = []
         for product in to_trade:
-            if prices[product][1]>= np.percentile(product_price[product], 75):
+            if prices[product][1] >= np.percentile(product_price[product], 75):
                 sell_now.append(product)
-            elif prices[product][1]<= np.percentile(product_price[product], 25):
+            elif prices[product][1] <= np.percentile(product_price[product], 25):
                 buy_now.append(product)
             else:
                 return False

@@ -238,16 +238,26 @@ class Game:
         s += bar
         
         for p in self.players.values():
-            s += "loc={:20s}, N={:3d}, Inv={}\n".format(p[INFO_LOC], p[INFO_N], p[INFO_INV])
+            s += "loc={:5s}, N={:3d}, Inv={}\n".format(p[INFO_LOC], p[INFO_N], p[INFO_INV])
+            s += f"{16*' '}, Gol={p[INFO_GOAL]}\n"
+
 
         s += bar
-        # for node,m in self.markets.items():
-        #     s += "{:20s}: ".format(node)
-        #     ps = m.get_prices()  # dict with product:price
-        #     for prod in ps:
-        #         am = m.amounts[prod]
-        #         s += "{}:{:5d} ".format(prod, am)
-        #     s += "\n"
+        for node, m in self.markets.items():
+            if node == p[INFO_LOC]:
+                s += "{:10s} prc: ".format(node)
+                ps = m.get_prices()  # dict with product:price
+                for prod in ps:
+                    am = m.amounts[prod]
+                    pr = m.prices[prod]
+                    s += "{}:{:5d} ".format(prod, pr)
+                s += "\n"
+                s += "{:10s} amt: ".format(' ')
+                ps = m.get_prices()  # dict with product:price
+                for prod in ps:
+                    am = m.amounts[prod]
+                    pr = m.prices[prod]
+                    s += "{}:{:5d} ".format(prod, am)
 
         s += "\n\n"
 
