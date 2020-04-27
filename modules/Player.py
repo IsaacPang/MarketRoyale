@@ -251,6 +251,7 @@ class Player(BasePlayer):
         if avail:
             return random.choice(avail)
         else:
+            # TODO: At a point in the game when this is none, just move to a researched market
             return None
 
     def move_to_buy(self, prices):
@@ -263,6 +264,7 @@ class Player(BasePlayer):
                 if purchase_item:
                     return Command.BUY, purchase_item
                 else:
+                    # TODO: if all goals have been reached, use different purchase strategy
                     return self.move_to_ctr()
             return Command.RESEARCH, None
 
@@ -381,6 +383,7 @@ class Player(BasePlayer):
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
         # get the product name which has not reached the goal
+        # TODO: Need to incorporate a blacklist set of markets where amounts for products = 0 here
         possible_targets = {product: [None, math.inf]
                             for product, amount in self.goal.items()
                             if self.inventory[product][0] < amount}
@@ -395,6 +398,7 @@ class Player(BasePlayer):
                             possible_targets[product] = (market, market_price)
         else:
             # Return None if all inventory items have been reached.
+            # TODO: Need to add code for what possible targets are when the goal is reached
             return None
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
@@ -446,7 +450,7 @@ class Player(BasePlayer):
 
         # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
         target_list = sorted(self.price_stats.items(), key=lambda x: -x[1][0])[:5]
-        target_name = {product[0] for product in target_list}
+        target_name = [product[0] for product in target_list]
 
         # Step 3: Check if the market sells the target list products
         to_trade = {target for target in target_name if prices.get(target)}
@@ -472,6 +476,14 @@ class Player(BasePlayer):
         at the current market"""
         return min(market_prices[product][1],
                    self.gold // market_prices[product][0])
+
+    def afford_anything(self, market_prices, buy_set):
+        """Boolean function if the player can afford anything at the current market"""
+        for product in buy_set:
+            if self.afford_amount(market_prices, product) > 0:
+                return True
+        return False
+
 
     def update_inv_gold(self, prices, inv, prod, prod_amt, gold, action=0):
         """Helper function to update a given inventory and gold depending on the player action.
