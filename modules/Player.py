@@ -333,13 +333,14 @@ class Player(BasePlayer):
                     for product in possible_targets.keys():
                         market_price = info[product][0]
                         min_price = possible_targets[product][1]
-                        if (product in self.goal.keys()) and (market_price < min_price):
-                            possible_targets[product] = [market, market_price]
+                        if all([product in self.goal.keys(),
+                                market_price < min_price]):
+                            possible_targets[product] = (market, market_price)
         else:
             return None
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
-                          for market, price in possible_targets.values()}
+                          for market, prices in possible_targets.values()}
         # find the closest white market to achieve the goal
         # TODO: if returns none, logic is required to find more markets and research
         if dist_to_target:

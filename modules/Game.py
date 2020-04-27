@@ -225,9 +225,12 @@ class Game:
                     self.have_researched[p_info[INFO_LOC]].append(p_id)
 
                 if self.verbose:
-                    print("{} {}".format(p_id, msg))
+                    if msg:
+                        print("{} {}".format(p_id, msg))
+                        print(f"Player Inventory:{dict(p_info[INFO_OBJ].inventory)}")
             if self.verbose:
-                print(self)
+                if msg:
+                    print(self)
 
         return self.game_result()
             
