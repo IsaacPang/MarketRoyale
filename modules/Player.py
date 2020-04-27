@@ -64,21 +64,21 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0                              # how many turns taken in game:     0,1,..*
-        self.max_turn = 300
-        self.researched = set()                    # researched markets:               [market1, market2..]
-        self.market_prices = {}                    # market prices from self/players:  {market:{product:[amount, price]}}
-        self.inventory = defaultdict(lambda:(0,0)) # record items in inventory:        {product:(amount, asset_cost)}
-        self.gold = 0                              # gold:                             0,1,..*
-        self.score = 0                             # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False                 # indicates whether goal achieved:  True/False
-        self.visited_node = defaultdict(int)       # location visit counts:            {location: times_visited}
-        self.loc = ''                              # player's current location
-        self.bonus = 10000                         # bonus points upon reaching goal
-        self.ctr = ''                              # the central market, currently unknown
-        self.target_loc = ''                       # target location after searching and pathing
-        self.black_penalty = 100                   # penalty for being in a black market
-        self.interest = 1.1                        # interest rate for overdrawn gold
+        self.turn = 0                                 # how many turns taken in game: 0,1,..*
+        self.max_turn = 300                           # maximum turns in a game
+        self.researched = set()                       # researched markets:           [market1, market2..]
+        self.market_prices = {}                       # prices from self/players:     {market:{product:[amount, price]}}
+        self.inventory = defaultdict(lambda: (0, 0))  # record items in inventory:    {product:(amount, asset_cost)}
+        self.gold = 0                                 # gold:                            0,1,..*
+        self.score = 0                                # score from inventory and gold:   0,1,..*
+        self.goal_achieved = False                    # indicates whether goal achieved: True/False
+        self.visited_node = defaultdict(int)          # location visit counts:           {location: times_visited}
+        self.loc = ''                                 # player's current location
+        self.bonus = 10000                            # bonus points upon reaching goal
+        self.ctr = ''                                 # the central market, currently unknown
+        self.target_loc = ''                          # target location after searching and pathing
+        self.black_penalty = 100                      # penalty for being in a black market
+        self.interest = 1.1                           # interest rate for overdrawn gold
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
