@@ -5,7 +5,7 @@ import time
 start = time.time()
 total_res = []
 game_turns = Game.NUM_TURNS
-games_run = 1000
+games_run = 100
 for i in range(games_run):
     p1 = Player()
     p = [p1]
@@ -19,7 +19,7 @@ for i in range(games_run):
 
 print(sum(total_res)/len(total_res))
 end = time.time()
-time_taken = start - end
+time_taken = end - start
 print(f"Time taken for {games_run} games: {time_taken:.2f} seconds")
 print(f"Average time for each turn: {time_taken / (games_run * game_turns):.6f} seconds")
 

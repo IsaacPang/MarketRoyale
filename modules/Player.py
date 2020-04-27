@@ -468,11 +468,31 @@ class Player(BasePlayer):
         return min(market_prices[product][1],
                    self.gold // market_prices[product][0])
 
-    def update_inv_gold(self, prices, input_inv, prod, prod_amt, input_gold, gold_amt):
-        """Helper function to update a given inventory and gold"""
-        pass
+    def update_inv_gold(self, prices, inv, prod, prod_amt, gold, action=0):
+        """Helper function to update a given inventory and gold depending on the player action.
+        Args:
+            prices (dict): market prices in the format {product: (price, amount)}
+            inv (dict): inventory type in the format {product: (amount, asset cost)}
+            prod (str): the product to update the inventory
+            prod_amt (int): the amount of product to update the inventory
+            gold (float): the amount of starting gold
+            action (int): 0 if the player is buying
+                          1 if the player is selling
+        Output:
+            inv (dict): Updated dictionary
+            gold (float): Updated gold
+        """
+        if action == 0:
+            inv[prod] = (inv[prod][0] + prod_amt,
+                         prod_amt * prices[prod][0] + inv[prod][1])
+            gold -= prod_amt * prices[prod][0]
+        else:
+            inv[prod] = (inv[prod][0] - prod_amt,
+                         inv[prod][1] - prod_amt * prices[prod][0])
+            gold += prod_amt * prices[prod][0]
+        return inv, gold
 
-    def goal_purchase(self, this_market_info):
+    def goal_purchase(self, market_info):
         """Return the item and amount to buy when player is at a destination market.
             Update self inventory and gold too before returning.
 
@@ -483,7 +503,7 @@ class Player(BasePlayer):
                 4. update self inventory, gold, and return output.
                 
             **Note This function is guaranteed to purchase a type of product even
-            when the market couldnt meet our demand to reduce complexity as the
+            when the market cannot meet our demand to reduce complexity as the
             score will be same/reduced when this happens. This is achieved by
             setting initial max_score=0.    
                 
@@ -493,7 +513,7 @@ class Player(BasePlayer):
             2. inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
                 a dictionary of products, amount of products, cost spent buying the items in inventory.            
             3. gold : gold_amt            
-            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
+            4. market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
@@ -505,7 +525,7 @@ class Player(BasePlayer):
         to_buy = None
 
         # find the best item to buy
-        for product in this_market_info.keys():
+        for product in market_info.keys():
 
             # initialize dummy variables used to record after purchase inventory and gold to compute score         
             tmp_inventory = copy.deepcopy(self.inventory)
@@ -514,13 +534,15 @@ class Player(BasePlayer):
             # if product is what we need
             if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
                 # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
-                tmp_amt = min(int(self.afford_amount(this_market_info, product)),
+                tmp_amt = min(int(self.afford_amount(market_info, product)),
                               self.goal[product] - self.inventory[product][0])
 
                 # update dummy variables to reflect after purchase inventory and gold level
-                tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
-                                          tmp_amt * tmp_inventory[product][1] + this_market_info[product][0])
-                tmp_gold -= tmp_amt * this_market_info[product][0]
+                # tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
+                #                           tmp_amt * this_market_info[product][0] + tmp_inventory[product][1])
+                # tmp_gold -= tmp_amt * this_market_info[product][0]
+                tmp_inventory, tmp_gold = self.update_inv_gold(market_info, tmp_inventory, product, tmp_amt,
+                                                               tmp_gold, action=0)
 
                 # compute score and update best item to buy
                 tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
@@ -530,10 +552,9 @@ class Player(BasePlayer):
                     max_score = tmp_score
         if to_buy:
             # update self inventory/gold then return purchased item
-            cost = buy_amt * this_market_info[to_buy][0]
-            self.gold = self.gold - cost
-            self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
-            return to_buy, int(buy_amt)
+            self.inventory, self.gold = self.update_inv_gold(market_info, self.inventory, to_buy, buy_amt,
+                                                             self.gold, action=0)
+            return to_buy, buy_amt
         else:
             return None
 
