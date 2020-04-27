@@ -226,8 +226,12 @@ class Game:
 
                 if self.verbose:
                     if msg:
+                        if len(msg) == 1:
+                            if msg[0].split()[0] == "Interest":
+                                continue
                         print("{} {}".format(p_id, msg))
                         print(f"Player Inventory:{dict(p_info[INFO_OBJ].inventory)}")
+                        print(f"Player Gold:{p_info[INFO_OBJ].gold}")
             if self.verbose:
                 if msg:
                     print(self)
@@ -251,7 +255,6 @@ class Game:
                 s += "{:10s} prc: ".format(node)
                 ps = m.get_prices()  # dict with product:price
                 for prod in ps:
-                    am = m.amounts[prod]
                     pr = m.prices[prod]
                     s += "{}:{:5d} ".format(prod, pr)
                 s += "\n"
@@ -259,7 +262,6 @@ class Game:
                 ps = m.get_prices()  # dict with product:price
                 for prod in ps:
                     am = m.amounts[prod]
-                    pr = m.prices[prod]
                     s += "{}:{:5d} ".format(prod, am)
 
         s += "\n\n"

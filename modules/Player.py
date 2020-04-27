@@ -76,6 +76,8 @@ class Player(BasePlayer):
         self.bonus = 10000                         # bonus points upon reaching goal
         self.ctr = ''                              # the central market, currently unknown
         self.target_loc = ''                       # target location after searching and pathing
+        self.black_penalty = 100                   # penalty for being in a black market
+        self.interest = 1.1                        # interest rate for overdrawn gold
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
@@ -114,9 +116,7 @@ class Player(BasePlayer):
         print("PRINT SOMETHING!")
 
         # Determine current strategy
-        bg_set = set(bm + gm)
-
-        cmd = self.get_strategy(prices, bg_set)
+        cmd = self.get_strategy(prices, bm, gm)
 
         return cmd
 
@@ -125,7 +125,7 @@ class Player(BasePlayer):
     # Think of possible test cases for each of them too.
     # __________________________________________________________________________________________
 
-    def get_strategy(self, prices, bg_set):
+    def get_strategy(self, prices, bm, gm):
         """Returns a function that dictates the player's current strategy
         Args:
             prices (dict): Prices of market in current location
@@ -134,6 +134,10 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A tuple of Command.CMD, data, output by children functions
         """
+        # get the set of black and grey markets
+        bg_set = set(bm + gm)
+        bm = set(bm)
+
         # check if goal achieved
         self.check_goal()
 
@@ -143,8 +147,19 @@ class Player(BasePlayer):
         # The highest priority is if the player is in a black/grey market
         # Player moves to the closest nearest white market
         if self.loc in bg_set:
+            if self.loc in bm:
+                self.gold -= self.black_penalty
             self.target_loc = self.nearest_white(self.loc, bg_set)
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
+
+        # If the gold is negative, the player cut losses by dumping inventory
+        # At the current market
+        if self.gold < 0:
+            self.gold = self.interest * self.gold
+            if prices:
+                return Command.SELL, self.cut_losses(prices)
+            else:
+                return Command.RESEARCH, None
 
         # While we don't have information on a third of the markets in the game
         # Move
@@ -156,16 +171,54 @@ class Player(BasePlayer):
             buying_market = self.search_market(bg_set)
             if buying_market:
                 self.target_loc = buying_market
-                return self.move_to_buy(prices, bg_set)
+                return self.move_to_buy(prices)
             else:
                 return self.wander(prices, bg_set)
         else:
-            self.target_loc = self.ctr
-            next_step = self.get_next_step(self.ctr)
-            if next_step:
-                return Command.MOVE_TO, self.get_next_step(self.ctr)
-            else:
-                return Command.PASS, None
+            return self.move_to_ctr()
+
+    def move_to_ctr(self):
+        self.target_loc = self.ctr
+        next_step = self.get_next_step(self.target_loc)
+        if next_step:
+            return Command.MOVE_TO, next_step
+        else:
+            return Command.PASS, None
+
+    def cut_losses(self, prices):
+        # prices = {product: (prices, amounts)}
+        # inventory = {product: (amount, cost)}
+        final_assets = -math.inf
+        to_sell = None
+        sell_num = 0
+        for product, info in self.inventory.items():
+            tmp_num = -int(self.gold // prices[product][0])
+            if info[0] >= tmp_num:
+                tmp_inv = copy.deepcopy(self.inventory)
+                tmp_indcst = tmp_inv[product][1] / tmp_inv[product][0]
+                tmp_newnum = tmp_inv[product][0] - tmp_num
+                tmp_newcst = tmp_newnum * tmp_indcst
+                tmp_inv[product] = (tmp_newnum, tmp_newcst)
+                tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
+                if tmp_assets >= final_assets:
+                    final_assets = tmp_assets
+                    to_sell = product
+                    sell_num = tmp_num
+        if to_sell:
+            inv_num = self.inventory[to_sell][0]
+            inv_indcst = self.inventory[to_sell][1] / inv_num
+            inv_newnum = inv_num - sell_num
+            inv_newcst = inv_newnum * inv_indcst
+            self.inventory[to_sell] = (inv_newnum, inv_newcst)
+            return to_sell, sell_num
+        else:
+            to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
+            sell_num = self.inventory[to_sell][0]
+            self.inventory[to_sell] = (0, 0)
+
+        self.gold += sell_num * prices[to_sell][0]
+        return to_sell, sell_num
+
 
     def wander(self, prices, bg_set):
         if self.loc != self.target_loc:
@@ -181,7 +234,7 @@ class Player(BasePlayer):
                     self.target_loc = next_market
                     return self.wander(prices, bg_set)
                 else:
-                    return self.move_to_buy(prices, bg_set)
+                    return self.move_to_buy(prices)
             else:
                 self.researched.add(self.loc)
                 return Command.RESEARCH, None
@@ -195,7 +248,7 @@ class Player(BasePlayer):
         else:
             return None
 
-    def move_to_buy(self, prices, bg_set):
+    def move_to_buy(self, prices):
         """Function to continue along the path to the target"""
         if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
@@ -205,7 +258,7 @@ class Player(BasePlayer):
                 if purchase_item:
                     return Command.BUY, purchase_item
                 else:
-                    return Command.PASS, None
+                    return self.move_to_ctr()
             return Command.RESEARCH, None
 
     def first_turn(self, bg_set):
@@ -333,14 +386,15 @@ class Player(BasePlayer):
                     for product in possible_targets.keys():
                         market_price = info[product][0]
                         min_price = possible_targets[product][1]
-                        if all([product in self.goal.keys(),
-                                market_price < min_price]):
+                        if all([market_price < min_price]):
                             possible_targets[product] = (market, market_price)
         else:
+            # Return None if all inventory items have been reached.
             return None
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
-                          for market, prices in possible_targets.values()}
+                          for market, prices in possible_targets.values()
+                          if market}
         # find the closest white market to achieve the goal
         # TODO: if returns none, logic is required to find more markets and research
         if dist_to_target:
@@ -468,9 +522,9 @@ class Player(BasePlayer):
             # if product is what we need
             if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
                 # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
-                tmp_amt = min(this_market_info[product][1],
-                              self.gold // this_market_info[product][0],
-                              self.goal[product] - self.inventory[product][0])
+                tmp_amt = min(int(this_market_info[product][1]),
+                              int(self.gold // this_market_info[product][0]),
+                              int(self.goal[product] - self.inventory[product][0]))
 
                 # update dummy variables to reflect after purchase inventory and gold level
                 tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
@@ -481,9 +535,8 @@ class Player(BasePlayer):
                 tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
                 if tmp_score >= max_score:
                     to_buy = product
-                    buy_amt = tmp_amt
+                    buy_amt = int(tmp_amt)
                     max_score = tmp_score
-        assert(to_buy is not None)
         if to_buy:
             # update self inventory/gold then return purchased item
             cost = buy_amt * this_market_info[to_buy][0]
