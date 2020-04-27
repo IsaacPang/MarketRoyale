@@ -67,7 +67,7 @@ class Player(BasePlayer):
         self.turn = 0                                 # how many turns taken in game: 0,1,..*
         self.max_turn = 300                           # maximum turns in a game
         self.researched = set()                       # researched markets:           [market1, market2..]
-        self.market_prices = {}                       # prices from self/players:     {market:{product:[amount, price]}}
+        self.market_prices = {}                       # prices from self/players:     {market:{product:[price, amount]}}
         self.inventory = defaultdict(lambda: (0, 0))  # record items in inventory:    {product:(amount, asset_cost)}
         self.gold = 0                                 # gold:                            0,1,..*
         self.score = 0                                # score from inventory and gold:   0,1,..*
@@ -79,6 +79,7 @@ class Player(BasePlayer):
         self.target_loc = ''                          # target location after searching and pathing
         self.black_penalty = 100                      # penalty for being in a black market
         self.interest = 1.1                           # interest rate for overdrawn gold
+        self.blacklist = defaultdict(set)             # set of markets with no amount for each product
 
     # TODO _________________________________________________________________________________
     # Add logic for selling. Most of it will be reverse of buying so leave it for now.
@@ -367,7 +368,7 @@ class Player(BasePlayer):
         Output: None
         """
         for prod, amount in self.goal.items():
-            if self.inventory[prod][1] < amount:
+            if self.inventory[prod][0] < amount:
                 return None
         self.goal_achieved = True
         return None
@@ -385,19 +386,20 @@ class Player(BasePlayer):
         # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
         # self.inventory record items in inventory:        {product:[amount, asset_cost]}
         # get the product name which has not reached the goal
-        # TODO: Need to incorporate a blacklist set of markets where amounts for products = 0 here
         possible_targets = {product: [None, math.inf]
                             for product, amount in self.goal.items()
                             if self.inventory[product][0] < amount}
         if possible_targets:
             for market, info in self.market_prices.items():
-                # check if markets are white
+                # check if the market is white
                 if market not in bg_set:
                     for product in possible_targets.keys():
-                        market_price = info[product][0]
-                        min_price = possible_targets[product][1]
-                        if all([market_price < min_price]):
-                            possible_targets[product] = (market, market_price)
+                        # check if market is not blacklisted for this product
+                        if market not in self.blacklist[product]:
+                            market_price = info[product][0]
+                            min_price = possible_targets[product][1]
+                            if all([market_price < min_price]):
+                                possible_targets[product] = (market, market_price)
         else:
             # Return None if all inventory items have been reached.
             # TODO: Need to add code for what possible targets are when the goal is reached
@@ -461,11 +463,11 @@ class Player(BasePlayer):
         if not to_trade:
             return None, None
 
-        # step 4: check if it's the right market to sell/buy
+        # step 4: check if it's the right market to sell
+        # While the market is the right one to sell, we must have the an amount in our inventory to sell
         sell_set = {product for product in to_trade
                     if prices[product][0] >= self.price_stats[product][1]
                     and self.inventory[product][0] > 0}
-        print(sell_set)
         # The right market to buy MUST have non-zero items to buy
         buy_set = {product for product in to_trade
                    if prices[product][0] <= self.price_stats[product][2]
@@ -548,6 +550,10 @@ class Player(BasePlayer):
 
         # find the best item to buy
         for product in market_info.keys():
+
+            # blacklist the product in this market if there is nothing here
+            if market_info[product][1] == 0:
+                self.blacklist[product].add(self.loc)
 
             # initialize dummy variables used to record after purchase inventory and gold to compute score         
             tmp_inventory = copy.deepcopy(self.inventory)
