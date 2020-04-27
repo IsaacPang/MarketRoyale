@@ -219,7 +219,6 @@ class Player(BasePlayer):
         self.gold += sell_num * prices[to_sell][0]
         return to_sell, sell_num
 
-
     def wander(self, prices, bg_set):
         if self.loc != self.target_loc:
             if self.loc not in self.researched.union(bg_set):
