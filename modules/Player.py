@@ -152,6 +152,7 @@ class Player(BasePlayer):
             self.target_loc = self.nearest_white(self.loc, bg_set)
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
+        # Next highest priority:
         # If the gold is negative, the player cut losses by dumping inventory
         # At the current market
         if self.gold < 0:
@@ -162,11 +163,12 @@ class Player(BasePlayer):
                 return Command.RESEARCH, None
 
         # While we don't have information on a third of the markets in the game
-        # Move
+        # Move around and research
         if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 2:
             return self.wander(prices, bg_set)
 
         # Once we have enough information, try to achieve the goal
+        # Commence Phase 1:
         if not self.goal_achieved:
             buying_market = self.search_market(bg_set)
             if buying_market:
@@ -195,28 +197,18 @@ class Player(BasePlayer):
             tmp_num = -int(self.gold // prices[product][0])
             if info[0] >= tmp_num:
                 tmp_inv = copy.deepcopy(self.inventory)
-                tmp_indcst = tmp_inv[product][1] / tmp_inv[product][0]
-                tmp_newnum = tmp_inv[product][0] - tmp_num
-                tmp_newcst = tmp_newnum * tmp_indcst
-                tmp_inv[product] = (tmp_newnum, tmp_newcst)
+                tmp_inv, _ = self.update_inv_gold(prices, tmp_inv, product, tmp_num, gold=0, action=1)
                 tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
                 if tmp_assets >= final_assets:
                     final_assets = tmp_assets
                     to_sell = product
                     sell_num = tmp_num
-        if to_sell:
-            inv_num = self.inventory[to_sell][0]
-            inv_indcst = self.inventory[to_sell][1] / inv_num
-            inv_newnum = inv_num - sell_num
-            inv_newcst = inv_newnum * inv_indcst
-            self.inventory[to_sell] = (inv_newnum, inv_newcst)
-            return to_sell, sell_num
-        else:
+
+        if to_sell is None:
             to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
             sell_num = self.inventory[to_sell][0]
-            self.inventory[to_sell] = (0, 0)
 
-        self.gold += sell_num * prices[to_sell][0]
+        self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, to_sell, sell_num, self.gold, action=1)
         return to_sell, sell_num
 
     def wander(self, prices, bg_set):
@@ -487,8 +479,9 @@ class Player(BasePlayer):
                          prod_amt * prices[prod][0] + inv[prod][1])
             gold -= prod_amt * prices[prod][0]
         else:
+            single_cost = inv[prod][1] / inv[prod][0]
             inv[prod] = (inv[prod][0] - prod_amt,
-                         inv[prod][1] - prod_amt * prices[prod][0])
+                         max(inv[prod][1] - prod_amt * single_cost, 0))
             gold += prod_amt * prices[prod][0]
         return inv, gold
 
