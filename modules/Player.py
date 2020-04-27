@@ -170,7 +170,7 @@ class Player(BasePlayer):
             if self.loc != self.ctr:
                 return self.move_to_ctr()
             else:
-                # return self.dump_stock()
+                # return self.dump_stock() <- dump or pass turn
                 return self.move_to_ctr()
 
         # Commence Phase 1:
@@ -190,7 +190,9 @@ class Player(BasePlayer):
         # Once the goal has been achieved, switch to profit maximisation to maximise score
         # Commence Phase 2:
         else:
-            sell_set, buy_set = self.buy_sell(prices)
+            buy, sell = self.buy_sell(prices)
+            if buy and self.afford_anything(prices, buy):
+                return self.move_to_ctr() # need to work this out
             return self.move_to_ctr()
 
     def move_to_ctr(self):
@@ -460,16 +462,20 @@ class Player(BasePlayer):
             return None, None
 
         # step 4: check if it's the right market to sell/buy
-        sell_now = {product for product in to_trade
-                    if prices[product][0] >= self.price_stats[product][1]}
+        sell_set = {product for product in to_trade
+                    if prices[product][0] >= self.price_stats[product][1]
+                    and self.inventory[product][0] > 0}
+        print(sell_set)
+        # The right market to buy MUST have non-zero items to buy
         buy_set = {product for product in to_trade
-                   if prices[product][0] <= self.price_stats[product][2]}
+                   if prices[product][0] <= self.price_stats[product][2]
+                   and prices[product][1] > 0}
 
         # step 5: Check if our inventory contains the target products which the market has
         # Also check if the we have some items to sell in inventory
-        sell_set = sell_now.intersection({product for product in self.inventory.keys()
-                                          if self.inventory[product][0] > 0})
-        return sell_set, buy_set
+        # sell_set = sell_now.intersection({product for product in self.inventory.keys()
+        #                                   if self.inventory[product][0] > 0})
+        return buy_set, sell_set
 
     def afford_amount(self, market_prices, product):
         """Compute the maximum amount the player can purchase of a particular product
@@ -479,11 +485,12 @@ class Player(BasePlayer):
 
     def afford_anything(self, market_prices, buy_set):
         """Boolean function if the player can afford anything at the current market"""
+        if not buy_set:
+            return False
         for product in buy_set:
             if self.afford_amount(market_prices, product) > 0:
                 return True
         return False
-
 
     def update_inv_gold(self, prices, inv, prod, prod_amt, gold, action=0):
         """Helper function to update a given inventory and gold depending on the player action.
@@ -535,9 +542,6 @@ class Player(BasePlayer):
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-        # TODO: the score needs to be calculated according to the current score, which is the current gold
-        #       and any other goal scores.
-        #       Perhaps include a score calculation and score attribute for the player to self track
         max_score = -math.inf
         buy_amt = 0
         to_buy = None
@@ -745,6 +749,7 @@ def suite():
     test_suite.addTest(KnowledgeTestCase('test_check_goal'))
     test_suite.addTest(KnowledgeTestCase('test_rumours'))
     test_suite.addTest(KnowledgeTestCase('test_prices'))
+    test_suite.addTest(KnowledgeTestCase('test_buy_sell'))
 
     # Strategy testing
     test_suite.addTest(StrategyTestCase('test_first_turn'))
@@ -862,6 +867,38 @@ class KnowledgeTestCase(unittest.TestCase):
         p.save_market_prices(prices)
         self.assertTrue(p.market_prices)
         self.assertEqual(p.market_prices["A"]["Food"], [90, 100])
+
+    def test_buy_sell(self):
+        p1 = Player()
+        gold = 1000.0
+        goal = {"Food": 10, "Social": 15}
+        market_prices = {'A': {'Food': (109, 700),
+                               'Electronics': (755, 210),
+                               'Social': (47, 1400),
+                               'Hardware': (881, 35)},
+                         'B': {'Food': (95, 700),
+                               'Electronics': (384, 210),
+                               'Social': (49, 1400),
+                               'Hardware': (633, 35)},
+                         'C': {'Food': (80, 700),
+                               'Electronics': (382, 210),
+                               'Social': (46, 1400),
+                               'Hardware': (432, 35)},
+                         'D': {'Food': (113, 700),
+                               'Electronics': (782, 210),
+                               'Social': (73, 1400),
+                               'Hardware': (537, 35)}}
+        p1.set_gold(gold)
+        p1.set_goal(goal)
+        p1.inventory["Food"] = (5, 150)
+        p1.market_prices = market_prices
+        prices = {'Food': (113, 700),
+                  'Electronics': (794, 210),
+                  'Social': (64, 1400),
+                  'Hardware': (597, 35)}
+        buy, sell = p1.buy_sell(prices)
+        self.assertFalse(buy)
+        self.assertTrue(sell)
 
 
 # Create a class for testing strategy.
