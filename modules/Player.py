@@ -203,7 +203,7 @@ class Player(BasePlayer):
             if prices:
                 purchase_item = self.purchase(prices)
                 if purchase_item:
-                    return Command.BUY, self.purchase(prices)
+                    return Command.BUY, purchase_item
                 else:
                     return Command.PASS, None
             return Command.RESEARCH, None
