@@ -74,6 +74,7 @@ class Player(BasePlayer):
         self.blacklist = defaultdict(set)             # set of markets with no amount for each product
         self.price_stats = {}                         # stats of market prices        {product: (price var, 75th, 25th)}
         self.profit_order = []                        # A list of products in order to sell
+        self.final_turns = 0                          # The count of turns used at the end of the game
 
     def take_turn(self, location, prices, info, bm, gm):
         """Player takes a turn with (hopefully) informed choices.
@@ -154,13 +155,13 @@ class Player(BasePlayer):
         # If the gold is negative, the player must cut losses by dumping inventory at the current market
         if self.gold < 0:
             if prices:
-                return Command.SELL, self.cut_losses(prices)
+                return self.cut_losses(prices)
             else:
                 return Command.RESEARCH, None
 
         # Next highest priority:
         # Towards the end of the game, the player must go to the centre of the map
-        if self.turn > self.max_turn - 15:
+        if self.turn >= self.max_turn - self.final_turns:
             if self.loc != self.ctr:
                 return self.move_to_ctr()
             else:
@@ -190,7 +191,7 @@ class Player(BasePlayer):
         else:
             if buy and self.afford_anything(prices, buy):
                 return self.profit_buy(prices, buy) # TODO: need to work this out
-            elif sell and self.all_excess(sell):
+            elif sell and self.any_excess(sell):
                 return self.profit_sell(prices, sell)
             elif target_market:
                 self.target_loc = target_market
@@ -209,7 +210,7 @@ class Player(BasePlayer):
     def excess_stock(self, product):
         return max(int(self.inventory[product][0] - self.goal[product]), 0)
 
-    def all_excess(self, sell_set):
+    def any_excess(self, sell_set):
         """Function to determine if any excess stock in sell set exists in player inventory"""
         for product in sell_set:
             if self.excess_stock(product):
@@ -228,26 +229,32 @@ class Player(BasePlayer):
     def cut_losses(self, prices):
         # prices = {product: (prices, amounts)}
         # inventory = {product: (amount, cost)}
-        final_assets = -math.inf
-        to_sell = None
-        sell_num = 0
-        for product, info in self.inventory.items():
-            tmp_num = -int(self.gold // prices[product][0])
-            if info[0] >= tmp_num:
-                tmp_inv = copy.deepcopy(self.inventory)
-                tmp_inv, _ = self.update_inv_gold(prices, tmp_inv, product, tmp_num, gold=0, action=1)
-                tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
-                if tmp_assets >= final_assets:
-                    final_assets = tmp_assets
-                    to_sell = product
-                    sell_num = tmp_num
+        excess_product = self.any_excess(set(prices.keys()))
+        if excess_product:
+            to_sell = excess_product
+            sell_num = self.excess_stock(excess_product)
+
+        else:
+            final_assets = -math.inf
+            to_sell = None
+            sell_num = 0
+            for product, info in self.inventory.items():
+                tmp_num = -int(self.gold // prices[product][0])
+                if info[0] >= tmp_num:
+                    tmp_inv = copy.deepcopy(self.inventory)
+                    tmp_inv, _ = self.update_inv_gold(prices, tmp_inv, product, tmp_num, gold=0, action=1)
+                    tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
+                    if tmp_assets >= final_assets:
+                        final_assets = tmp_assets
+                        to_sell = product
+                        sell_num = tmp_num
 
         if to_sell is None:
             to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
             sell_num = self.inventory[to_sell][0]
 
         self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, to_sell, sell_num, self.gold, action=1)
-        return to_sell, sell_num
+        return Command.SELL, (to_sell, sell_num)
 
     def wander(self, prices, bg_set):
         if self.loc not in self.researched.union(bg_set):
@@ -311,6 +318,9 @@ class Player(BasePlayer):
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
+
+        # Store information for the final turns needed for endgame.
+        self.final_turns = len(self.get_path_to(t1_target)) + len(self.goal)
 
         # If we are already at the maximum node, research the node
         if self.loc == t1_target:

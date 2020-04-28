@@ -5,11 +5,17 @@ import time
 start = time.time()
 total_res = []
 game_turns = Game.NUM_TURNS
-games_run = 1
+games_run = 100
+
+player_nums = 7
+
 for i in range(games_run):
-    p = [Player()] * 7
+    p = []
+    for j in range(player_nums):
+        p.append(Player())
     g = Game.Game(p, verbose=True)
     res = g.run_game()
+    print(res)
     if min(res) < 0:
         break
     total_res += res
