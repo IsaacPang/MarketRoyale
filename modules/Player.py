@@ -581,27 +581,26 @@ class Player(BasePlayer):
         Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
         Step 3:  Check if the market sells the target list products
                  if yes, go to step 4
-        Step 4:  Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
+        4. Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
                  Decision making:
                     If the price at this market is above eg. the 75th percentile of the all the prices for this product,
                     it suggests it is the right place to sell
                     --- Implication: if it's below 25th percentile, possibly a right place to buy
                  If yes, go to step 5
-        Step 5:  Check if our inventory contains the target products which the market has
+        5. Check if our inventory contains the target products which the market has
                  If yes, go to step 6
         Step 6: Sell the target products
-
         """
-        # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
+        
 
-        # Step 3: Check if the market sells the target list products
+        # Check if the market sells the target list products
         to_trade = {target for target in self.profit_order if prices.get(target)}
 
         # if the market doesn't sell the target products, function ends
         if not to_trade:
             return None, None
 
-        # step 4: check if it's the right market to sell
+        # check if it's the right market to sell
         # While the market is the right one to sell, we must have the an amount in our inventory to sell
         sell_set = {product for product in to_trade
                     if prices[product][0] >= self.price_stats[product][1]
@@ -611,10 +610,7 @@ class Player(BasePlayer):
                    if prices[product][0] <= self.price_stats[product][2]
                    and prices[product][1] > 0}
 
-        # step 5: Check if our inventory contains the target products which the market has
-        # Also check if the we have some items to sell in inventory
-        # sell_set = sell_now.intersection({product for product in self.inventory.keys()
-        #                                   if self.inventory[product][0] > 0})
+        
         return buy_set, sell_set
 
     def search_market(self, bg_set, risk=0):
