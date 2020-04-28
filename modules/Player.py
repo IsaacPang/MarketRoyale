@@ -200,6 +200,10 @@ class Player(BasePlayer):
                 return self.move_to_ctr()
 
     def move_to_ctr(self):
+        """This function command the player move until moving back to the central market.
+        Output: 
+            cmd(tup): A tuple of (Command.CMD, data)
+        """
         self.target_loc = self.ctr
         next_move = self.get_next_step(self.target_loc)
         if next_move:
@@ -208,16 +212,38 @@ class Player(BasePlayer):
             return Command.PASS, None
 
     def excess_stock(self, product):
+        """Return the amount of inventory exceeding the requirement of goal for specific prodict.
+        Args:
+            Product: the name of product
+        
+        Output:
+            The amount of inventory exceeding the goal.
+            
+        """
         return max(int(self.inventory[product][0] - self.goal[product]), 0)
 
     def any_excess(self, sell_set):
-        """Function to determine if any excess stock in sell set exists in player inventory"""
+        """Function to determine if any excess stock in sell set exists in player inventory.
+        Args:
+            Sell_set:
+            
+        Output:
+            name of the product or nothing
+        """
         for product in sell_set:
             if self.excess_stock(product):
                 return product
         return False
 
     def dump_stock(self, prices):
+        """
+        Args:
+            prices (dict): {product: (price, amount)}
+                    items and prices sold in current market.
+        
+        Output:
+            cmd(tup): A tuple of (Command.CMD, data)
+        """
         for product in prices.keys():
             to_dump = self.excess_stock(product)
             if to_dump:
@@ -227,6 +253,13 @@ class Player(BasePlayer):
         return Command.PASS, None
 
     def cut_losses(self, prices):
+         """
+         Args:
+             prices (dict): {product: (price, amount)}
+                    items and prices sold in current market.
+         Output:
+             
+         """
         # prices = {product: (prices, amounts)}
         # inventory = {product: (amount, cost)}
         excess_product = self.any_excess(set(prices.keys()))
@@ -257,6 +290,16 @@ class Player(BasePlayer):
         return Command.SELL, (to_sell, sell_num)
 
     def wander(self, prices, bg_set):
+         """The function makes the player do any market research to the market not being researched yet
+             on the way to target location.
+         Args:
+             prices (dict): {product: (price, amount)}
+                    items and prices sold in current market.
+             bg_set (set): Set of black and grey markets
+             
+         Output:
+             cmd(tup): A tuple of (Command.CMD, data)
+         """
         if self.loc not in self.researched.union(bg_set):
             self.researched.add(self.loc)
             return Command.RESEARCH, None
@@ -271,6 +314,7 @@ class Player(BasePlayer):
                     return Command.PASS, None
 
     def choose(self, bg_set, ignore_set):
+         """"""
         markets = set(self.map.get_node_names())
         researched = self.researched
         avail = list(markets - researched - bg_set - ignore_set)
@@ -284,7 +328,14 @@ class Player(BasePlayer):
                 return None
 
     def move_to_buy(self, prices):
-        """Function to continue along the path to the target"""
+        """Function to continue along the path to the target.
+        Args:
+             prices (dict): {product: (price, amount)}
+                    items and prices sold in current market.
+                    
+        Output:
+            cmd(tup): A tuple of (Command.CMD, data)
+        """
         if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
         elif self.loc == self.target_loc:
@@ -336,7 +387,14 @@ class Player(BasePlayer):
 
     def nearest_white(self, target_market, bg_set, assessed=set()):
         """Returns the market location closest to the target market that is white
-        If the target market is white, returns the target"""
+           If the target market is white, returns the target.
+        Args:
+            bg_set (set): Set of black and grey markets
+            target_market (str): Target market from search. 
+        
+        Output:
+             return the nearest white market 
+        """
         # return the target market if it is a white market
         if target_market not in bg_set:
             return target_market
@@ -457,6 +515,10 @@ class Player(BasePlayer):
         """Function to update player knowledge on statistics of the market
         The only useful information to the player is a target region where
         the player can actually do business.
+        Args:
+            bg_set (set): Set of black and grey markets
+        
+        Output: None
         """
         product_price = defaultdict(list)
         target_region = set(self.market_prices.keys()) - bg_set
@@ -522,12 +584,31 @@ class Player(BasePlayer):
 
     def afford_amount(self, market_prices, product):
         """Compute the maximum amount the player can purchase of a particular product
-        at the current market"""
+        at the current market
+        Args:
+            market prices : {market:{product:[price, amount]}}
+                    dictionary of market and products and price they sell.  
+            Product: name of product
+            
+        Output:
+            maximum amount the player can buy of a specific product.
+            
+                    """
         return int(min(market_prices[product][1],
                        self.gold // market_prices[product][0]))
 
     def afford_anything(self, market_prices, buy_set):
-        """Boolean function if the player can afford anything at the current market"""
+        """Boolean function if the player can afford anything at the current market
+        Args:
+            market prices : {market:{product:[price, amount]}}
+                    dictionary of market and products and price they sell.  
+            Buy_set: records the products that is planning to buy
+        
+        Output:
+             if the player affords to buy everything in buy set, then return True
+             otherwise, return False
+           
+        """
         if not buy_set:
             return False
         for product in buy_set:
@@ -620,6 +701,7 @@ class Player(BasePlayer):
             return None
 
     def profit_buy(self, prices, buy_set):
+     """"""
         if not prices:
             return Command.RESEARCH, None
         for product in buy_set:
