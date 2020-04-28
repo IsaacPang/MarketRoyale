@@ -98,6 +98,9 @@ class Player(BasePlayer):
         # Increase turn counter
         self.turn += 1
 
+        # define the player location
+        self.loc = location
+
         # Update gold
         if self.gold < 0:
             self.gold = self.interest * self.gold
@@ -107,9 +110,6 @@ class Player(BasePlayer):
             for product in prices.keys():
                 if prices[product][1] == 0:
                     self.blacklist[product].add(self.loc)
-
-        # define the player location
-        self.loc = location
 
         # add information from current market
         self.save_market_prices(prices)
