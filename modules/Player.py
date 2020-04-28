@@ -394,7 +394,7 @@ class Player(BasePlayer):
             target_market (str): Target market from search. 
         
         Output:
-             return the nearest white market 
+             (str): return the nearest white market from the current location
         """
         # return the target market if it is a white market
         if target_market not in bg_set:
@@ -553,7 +553,6 @@ class Player(BasePlayer):
         the player can actually do business.
         Args:
             bg_set (set): Set of black and grey markets
-        
         Output: None
         """
         product_price = defaultdict(list)
@@ -738,14 +737,13 @@ class Player(BasePlayer):
     def afford_anything(self, market_prices, buy_set):
         """Boolean function if the player can afford anything at the current market
         Args:
-            market prices : {market:{product:[price, amount]}}
-                    dictionary of market and products and price they sell.  
-            Buy_set: records the products that is planning to buy
+            market_prices (dict): {market:{product:[price, amount]}}
+                                   dictionary of market and products and price they sell.
+            buy_set (set): set of products that are statistically worth buying at this market
         
         Output:
-             if the player affords to buy everything in buy set, then return True
-             otherwise, return False
-           
+            (bool): True - If anything is worth buying at this market
+                    False - If nothing is worth buying at this market
         """
         if not buy_set:
             return False
