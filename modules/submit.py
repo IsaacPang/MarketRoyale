@@ -43,21 +43,21 @@ def send_to_server5002(js):
     print(data)
 
 
-def send_to_server5003(js):
-    """ Open socket and send the json string js to server with EOM appended, and wait
-        for \n terminated reply.
-        js - json object to send to server
-    """
-    clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Port 5003: 0.1s turns
-    clientsocket.connect(('128.250.106.25', 5003))
-
-    clientsocket.send("""{}EOM""".format(js).encode('utf-8'))
-
-    data = ''
-    while data == '' or data[-1] != "\n":
-        data += clientsocket.recv(1024).decode('utf-8')
-    print(data)
+# def send_to_server5003(js):
+#     """ Open socket and send the json string js to server with EOM appended, and wait
+#         for \n terminated reply.
+#         js - json object to send to server
+#     """
+#     clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#     # Port 5003: 0.1s turns
+#     clientsocket.connect(('128.250.106.25', 5003))
+#
+#     clientsocket.send("""{}EOM""".format(js).encode('utf-8'))
+#
+#     data = ''
+#     while data == '' or data[-1] != "\n":
+#         data += clientsocket.recv(1024).decode('utf-8')
+#     print(data)
 
 
 with open(PATH, 'w') as f:

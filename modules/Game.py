@@ -225,16 +225,11 @@ class Game:
                     self.have_researched[p_info[INFO_LOC]].append(p_id)
 
                 if self.verbose:
-                    if msg:
-                        if len(msg) == 1:
-                            if msg[0].split()[0] == "Interest":
-                                continue
-                        print("{} {}".format(p_id, msg))
-                        print(f"Player Inventory:{dict(p_info[INFO_OBJ].inventory)}")
-                        print(f"Player Gold:{p_info[INFO_OBJ].gold}")
+                    print("{} {}".format(p_id, msg))
+                    print(f"Player Inventory:{dict(p_info[INFO_OBJ].inventory)}")
+                    print(f"Player Gold:{p_info[INFO_OBJ].gold}")
             if self.verbose:
-                if msg:
-                    print(self)
+                print(self)
 
         return self.game_result()
             
@@ -250,19 +245,18 @@ class Game:
 
 
         s += bar
-        for node, m in self.markets.items():
-            if node == p[INFO_LOC]:
-                s += "{:10s} prc: ".format(node)
-                ps = m.get_prices()  # dict with product:price
-                for prod in ps:
-                    pr = m.prices[prod]
-                    s += "{}:{:5d} ".format(prod, pr)
-                s += "\n"
-                s += "{:10s} amt: ".format(' ')
-                ps = m.get_prices()  # dict with product:price
-                for prod in ps:
-                    am = m.amounts[prod]
-                    s += "{}:{:5d} ".format(prod, am)
+        # for node, m in self.markets.items():
+        #     s += "{:10s} prc: ".format(node)
+        #     ps = m.get_prices()  # dict with product:price
+        #     for prod in ps:
+        #         pr = m.prices[prod]
+        #         s += "{}:{:5d} ".format(prod, pr)
+        #     s += "\n"
+        #     s += "{:10s} amt: ".format(' ')
+        #     ps = m.get_prices()  # dict with product:price
+        #     for prod in ps:
+        #         am = m.amounts[prod]
+        #         s += "{}:{:5d} ".format(prod, am)
 
         s += "\n\n"
 

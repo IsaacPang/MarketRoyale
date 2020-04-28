@@ -38,14 +38,6 @@ Authors: Syndicate 8 - MBusA2020 Module 2
              Isaac Pang          (i.pang2@student.unimelb.edu.au)
              Tann Tan            (h.tan49@student.unimelb.edu.au)
              Grace Zhu           (grace.zhu@student.unimelb.edu.au)
-
-TODO List:
-    - Refer to code comments
-    - Update docstrings
-
-Dream TODO List:
-    - Machine Learning to predict where to go, maybe
-    - A*/BFS for optimisation of movement
 """
 
 import Command
@@ -64,24 +56,26 @@ class Player(BasePlayer):
         super().__init__()
 
         # Set additional properties
-        self.turn = 0                              # how many turns taken in game:     0,1,..*
-        self.researched = set()                    # researched markets:               [market1, market2..]
-        self.market_prices = {}                    # market prices from self/players:  {market:{product:[amount, price]}}
-        self.inventory = defaultdict(lambda:(0,0)) # record items in inventory:        {product:(amount, asset_cost)}
-        self.gold = 0                              # gold:                             0,1,..*
-        self.score = 0                             # score from inventory and gold:    0,1,..*
-        self.goal_achieved = False                 # indicates whether goal achieved:  True/False
-        self.visited_node = defaultdict(int)       # location visit counts:            {location: times_visited}
-        self.loc = ''                              # player's current location
-        self.bonus = 10000                         # bonus points upon reaching goal
-        self.ctr = ''                              # the central market, currently unknown
-        self.target_loc = ''                       # target location after searching and pathing
-        self.black_penalty = 100                   # penalty for being in a black market
-        self.interest = 1.1                        # interest rate for overdrawn gold
+        self.turn = 0                                 # how many turns taken in game: 0,1,..*
+        self.max_turn = 300                           # maximum turns in a game
+        self.researched = set()                       # researched markets:           [market1, market2..]
+        self.market_prices = {}                       # prices from self/players:     {market:{product:[price, amount]}}
+        self.inventory = defaultdict(lambda: (0, 0))  # record items in inventory:    {product:(amount, asset_cost)}
+        self.gold = 0                                 # gold:                            0,1,..*
+        self.score = 0                                # score from inventory and gold:   0,1,..*
+        self.goal_achieved = False                    # indicates whether goal achieved: True/False
+        self.visited_node = defaultdict(int)          # location visit counts:           {location: times_visited}
+        self.loc = ''                                 # player's current location
+        self.bonus = 10000                            # bonus points upon reaching goal
+        self.ctr = ''                                 # the central market, currently unknown
+        self.target_loc = ''                          # target location after searching and pathing
+        self.black_penalty = 100                      # penalty for being in a black market
+        self.interest = 1.1                           # interest rate for overdrawn gold
+        self.blacklist = defaultdict(set)             # set of markets with no amount for each product
+        self.price_stats = {}                         # stats of market prices        {product: (price var, 75th, 25th)}
+        self.profit_order = []                        # A list of products in order to sell
+        self.final_turns = 0                          # The count of turns used at the end of the game
 
-    # TODO _________________________________________________________________________________
-    # Add logic for selling. Most of it will be reverse of buying so leave it for now.
-    # ______________________________________________________________________________________
     def take_turn(self, location, prices, info, bm, gm):
         """Player takes a turn with (hopefully) informed choices.
         Player can take any one of the following turns:
@@ -104,6 +98,16 @@ class Player(BasePlayer):
         # Increase turn counter
         self.turn += 1
 
+        # Update gold
+        if self.gold < 0:
+            self.gold = self.interest * self.gold
+
+        # blacklist the product in this market if there is nothing here
+        if prices:
+            for product in prices.keys():
+                if prices[product][1] == 0:
+                    self.blacklist[product].add(self.loc)
+
         # define the player location
         self.loc = location
 
@@ -113,17 +117,10 @@ class Player(BasePlayer):
         # collect information from other player
         self.collect_rumours(info)
 
-        print("PRINT SOMETHING!")
-
         # Determine current strategy
-        cmd = self.get_strategy(prices, bm, gm)
+        cmd, data = self.get_strategy(prices, bm, gm)
 
-        return cmd
-
-    # TODO ______________________________________________________________________________________
-    # Complete the functions below. Please add/remove additional arguments as you need.
-    # Think of possible test cases for each of them too.
-    # __________________________________________________________________________________________
+        return cmd, data
 
     def get_strategy(self, prices, bm, gm):
         """Returns a function that dictates the player's current strategy
@@ -141,102 +138,137 @@ class Player(BasePlayer):
         # check if goal achieved
         self.check_goal()
 
+        # On the very first turn, while the player is safe, take stock of surroundings
         if self.turn == 1:
             return self.first_turn(bg_set)
 
         # The highest priority is if the player is in a black/grey market
-        # Player moves to the closest nearest white market
+        # Player moves to the nearest white market
         if self.loc in bg_set:
             if self.loc in bm:
                 self.gold -= self.black_penalty
-            self.target_loc = self.nearest_white(self.loc, bg_set)
+            if self.target_loc in bg_set or self.target_loc is None:
+                self.target_loc = self.nearest_white(self.loc, bg_set)
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
 
-        # If the gold is negative, the player cut losses by dumping inventory
-        # At the current market
+        # Next highest priority:
+        # If the gold is negative, the player must cut losses by dumping inventory at the current market
         if self.gold < 0:
-            self.gold = self.interest * self.gold
             if prices:
-                return Command.SELL, self.cut_losses(prices)
+                return self.cut_losses(prices)
             else:
                 return Command.RESEARCH, None
 
-        # While we don't have information on a third of the markets in the game
-        # Move
+        # Next highest priority:
+        # Towards the end of the game, the player must go to the centre of the map
+        if self.turn >= self.max_turn - self.final_turns:
+            if self.loc != self.ctr:
+                return self.move_to_ctr()
+            else:
+                return self.dump_stock(prices)
+
+        # Commence Phase 1:
+        # While we don't have information on a third of the markets in the game. Move around and research
         if len(self.market_prices.keys()) < len(self.map.get_node_names()) // 2:
             return self.wander(prices, bg_set)
 
+        # Update the statistical knowledge of the player
+        self.update_stats(bg_set)
+
         # Once we have enough information, try to achieve the goal
+        # TODO: Need to search for buy locations with statistics
+        buy, sell = self.buy_sell(prices)
+        target_market = self.search_market(bg_set)
         if not self.goal_achieved:
-            buying_market = self.search_market(bg_set)
-            if buying_market:
-                self.target_loc = buying_market
+            if target_market:
+                self.target_loc = target_market
                 return self.move_to_buy(prices)
             else:
                 return self.wander(prices, bg_set)
+
+        # Once the goal has been achieved, switch to profit maximisation to maximise score
+        # Commence Phase 2:
         else:
-            return self.move_to_ctr()
+            if buy and self.afford_anything(prices, buy):
+                return self.profit_buy(prices, buy) # TODO: need to work this out
+            elif sell and self.any_excess(sell):
+                return self.profit_sell(prices, sell)
+            elif target_market:
+                self.target_loc = target_market
+                return self.move_to_buy(prices)
+            else:
+                return self.move_to_ctr()
 
     def move_to_ctr(self):
         self.target_loc = self.ctr
-        next_step = self.get_next_step(self.target_loc)
-        if next_step:
-            return Command.MOVE_TO, next_step
+        next_move = self.get_next_step(self.target_loc)
+        if next_move:
+            return Command.MOVE_TO, next_move
         else:
             return Command.PASS, None
+
+    def excess_stock(self, product):
+        return max(int(self.inventory[product][0] - self.goal[product]), 0)
+
+    def any_excess(self, sell_set):
+        """Function to determine if any excess stock in sell set exists in player inventory"""
+        for product in sell_set:
+            if self.excess_stock(product):
+                return product
+        return False
+
+    def dump_stock(self, prices):
+        for product in prices.keys():
+            to_dump = self.excess_stock(product)
+            if to_dump:
+                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, to_dump,
+                                                                 self.gold, action=1)
+                return Command.SELL, (product, to_dump)
+        return Command.PASS, None
 
     def cut_losses(self, prices):
         # prices = {product: (prices, amounts)}
         # inventory = {product: (amount, cost)}
-        final_assets = -math.inf
-        to_sell = None
-        sell_num = 0
-        for product, info in self.inventory.items():
-            tmp_num = -int(self.gold // prices[product][0])
-            if info[0] >= tmp_num:
-                tmp_inv = copy.deepcopy(self.inventory)
-                tmp_indcst = tmp_inv[product][1] / tmp_inv[product][0]
-                tmp_newnum = tmp_inv[product][0] - tmp_num
-                tmp_newcst = tmp_newnum * tmp_indcst
-                tmp_inv[product] = (tmp_newnum, tmp_newcst)
-                tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
-                if tmp_assets >= final_assets:
-                    final_assets = tmp_assets
-                    to_sell = product
-                    sell_num = tmp_num
-        if to_sell:
-            inv_num = self.inventory[to_sell][0]
-            inv_indcst = self.inventory[to_sell][1] / inv_num
-            inv_newnum = inv_num - sell_num
-            inv_newcst = inv_newnum * inv_indcst
-            self.inventory[to_sell] = (inv_newnum, inv_newcst)
-            return to_sell, sell_num
+        excess_product = self.any_excess(set(prices.keys()))
+        if excess_product:
+            to_sell = excess_product
+            sell_num = self.excess_stock(excess_product)
+
         else:
+            final_assets = -math.inf
+            to_sell = None
+            sell_num = 0
+            for product, info in self.inventory.items():
+                tmp_num = -int(self.gold // prices[product][0])
+                if info[0] >= tmp_num:
+                    tmp_inv = copy.deepcopy(self.inventory)
+                    tmp_inv, _ = self.update_inv_gold(prices, tmp_inv, product, tmp_num, gold=0, action=1)
+                    tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
+                    if tmp_assets >= final_assets:
+                        final_assets = tmp_assets
+                        to_sell = product
+                        sell_num = tmp_num
+
+        if to_sell is None:
             to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
             sell_num = self.inventory[to_sell][0]
-            self.inventory[to_sell] = (0, 0)
 
-        self.gold += sell_num * prices[to_sell][0]
-        return to_sell, sell_num
+        self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, to_sell, sell_num, self.gold, action=1)
+        return Command.SELL, (to_sell, sell_num)
 
     def wander(self, prices, bg_set):
-        if self.loc != self.target_loc:
-            if self.loc not in self.researched.union(bg_set):
-                self.researched.add(self.loc)
-                return Command.RESEARCH, None
-            else:
-                return Command.MOVE_TO, self.get_next_step(self.target_loc)
+        if self.loc not in self.researched.union(bg_set):
+            self.researched.add(self.loc)
+            return Command.RESEARCH, None
         else:
-            if self.loc in self.researched.union(bg_set):
-                next_market = self.choose(bg_set, {self.loc})
-                if next_market:
-                    self.target_loc = next_market
+            if self.loc != self.target_loc and self.target_loc is not None:
+                return Command.MOVE_TO, self.get_next_step(self.target_loc)
+            else:
+                self.target_loc = self.choose(bg_set, {self.loc})
+                if self.target_loc:
                     return self.wander(prices, bg_set)
                 else:
-                    return self.move_to_buy(prices)
-            else:
-                self.researched.add(self.loc)
-                return Command.RESEARCH, None
+                    return Command.PASS, None
 
     def choose(self, bg_set, ignore_set):
         markets = set(self.map.get_node_names())
@@ -245,7 +277,11 @@ class Player(BasePlayer):
         if avail:
             return random.choice(avail)
         else:
-            return None
+            avail = list(markets - bg_set - ignore_set)
+            if avail:
+                return random.choice(avail)
+            else:
+                return None
 
     def move_to_buy(self, prices):
         """Function to continue along the path to the target"""
@@ -253,10 +289,11 @@ class Player(BasePlayer):
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
         elif self.loc == self.target_loc:
             if prices:
-                purchase_item = self.purchase(prices)
+                purchase_item = self.goal_purchase(prices)
                 if purchase_item:
                     return Command.BUY, purchase_item
                 else:
+                    # TODO: if all goals have been reached, use different purchase strategy
                     return self.move_to_ctr()
             return Command.RESEARCH, None
 
@@ -270,8 +307,6 @@ class Player(BasePlayer):
         5. If the current location is a terminal node, switch to research strat.
         Args:
             bg_set (set): Set of black and grey markets
-            bm (list): Current list of black markets
-            gm (list): Current list of grey markets
         Output:
             cmd (tup): A tuple of (Command.CMD, data)
         """
@@ -283,6 +318,9 @@ class Player(BasePlayer):
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
+
+        # Store information for the final turns needed for endgame.
+        self.final_turns = len(self.get_path_to(t1_target)) + len(self.goal)
 
         # If we are already at the maximum node, research the node
         if self.loc == t1_target:
@@ -357,45 +395,57 @@ class Player(BasePlayer):
         Output: None
         """
         for prod, amount in self.goal.items():
-            if self.inventory[prod][1] < amount:
+            if self.inventory[prod][0] < amount:
                 return None
         self.goal_achieved = True
         return None
 
-    def search_market(self, bg_set):
+    def search_market(self, bg_set, action=0):
         """Given current location, inventory, gold, and goal, what is the best market to buy from.
            What market to choose if doesn't have any researched/rumoured information?
            Feel free to improvise and document the details here.
         Args:
             bg_set (set): Set of black and grey markets
+            action (int): 0 if the player is searching to buy
+                          1 if the player is searching to sell
         Output:
             target_market (str): returns the target market from search. If all information on markets
                                  are black, returns None
         """
-        # self.market_prices   # market prices from self/players:  {market:{product:[price, amount]}}
-        # self.inventory record items in inventory:        {product:[amount, asset_cost]}
-        # get the product name which has not reached the goal
-        possible_targets = {product: [None, math.inf]
-                            for product, amount in self.goal.items()
-                            if self.inventory[product][0] < amount}
-        if possible_targets:
-            for market, info in self.market_prices.items():
-                # check if markets are white
-                if market not in bg_set:
-                    for product in possible_targets.keys():
-                        market_price = info[product][0]
-                        min_price = possible_targets[product][1]
-                        if all([market_price < min_price]):
-                            possible_targets[product] = (market, market_price)
-        else:
-            # Return None if all inventory items have been reached.
-            return None
+        product_targets = set()
+        for product in self.profit_order:
+            if self.excess_stock(product):
+                action = 1
+                product_targets.add(product)
+
+        if action == 0:
+            if not self.goal_achieved:
+                product_targets = {product for product, amount in self.goal.items()
+                                   if self.inventory[product][0] < amount}
+            else:
+                product_targets = [product for product in self.profit_order]
+
+        target_region = set(self.market_prices.keys()) - bg_set
+        possible_targets = set()
+        for market in target_region:
+            for product in product_targets:
+                market_price = self.market_prices[market][product][0]
+                if action == 0:
+                    # get the 25th percentile price of this product to buy
+                    curr_price = self.price_stats[product][2]  # possible_targets[product][1]
+                    # check if market is not blacklisted for this product
+                    if market not in self.blacklist[product]:
+                        if market_price < curr_price:
+                            possible_targets.add(market)
+                else:
+                    # get the 75th percentile price of this product to sell
+                    curr_price = self.price_stats[product][1]
+                    if market_price > curr_price:
+                        possible_targets.add(market)
+
         # calculate the distances to these markets
         dist_to_target = {market: len(self.get_path_to(market))
-                          for market, prices in possible_targets.values()
-                          if market}
-        # find the closest white market to achieve the goal
-        # TODO: if returns none, logic is required to find more markets and research
+                          for market in possible_targets if market}
         if dist_to_target:
             target_market = min(dist_to_target, key=dist_to_target.get)
         else:
@@ -403,14 +453,34 @@ class Player(BasePlayer):
 
         return target_market
 
+    def update_stats(self, bg_set):
+        """Function to update player knowledge on statistics of the market
+        The only useful information to the player is a target region where
+        the player can actually do business.
+        """
+        product_price = defaultdict(list)
+        target_region = set(self.market_prices.keys()) - bg_set
+        for market in target_region:
+            for product in self.market_prices[market].keys():
+                product_price[product].append(self.market_prices[market][product][0])
+
+        # Store the statistical information of the products
+        # price stats are: {product: (price variance, 75th percentile, 25th percentile)}
+        self.price_stats = {product: (np.var(product_price[product]),
+                                      np.percentile(product_price[product], 75),
+                                      np.percentile(product_price[product], 25))
+                            for product in product_price.keys()}
+        target_list = sorted(self.price_stats.items(), key=lambda x: -x[1][0])[:5]
+        self.profit_order = [product[0] for product in target_list]
+        return None
+
     def buy_sell(self, prices):
         """ The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
         Selling is only executed in the later periods when we have sufficient amount of info AND goal 
         is completed. To check if a product worth trading, compute the variances for the product prices across
         all the markets. If the variance is small, it implies the price for the product is stable, so no much
         space for arbitrage and we don't have to bother with this product.
-        
-        Step 1:  compute the variances of the product price list (order by their variance in the descending order)
+        Step 1:  Order variance knowledge of the market in descending order
         Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
         Step 3:  Check if the market sells the target list products 
                  if yes, go to step 4
@@ -425,44 +495,72 @@ class Player(BasePlayer):
         Step 6: Sell the target products
     
         """
-        # step 1
-        product_price = defaultdict(list)
-        for market, market_items in self.market_prices.items():
-            for product in market_items.keys():
-                if product in product_price.keys():
-                    product_price[product].append(self.market_prices[market][product][0])
-
-        # Store the statistical information of the products
-        # price stats are: {product: (price variance, 75th percentile, 25th percentile)
-        price_stats = {product: (np.var(product_price[product]),
-                                 np.percentile(product_price[product], 75),
-                                 np.percentile(product_price[product], 25))
-                       for product in product_price.keys()}
-
         # Step 2: compute the target list for selling: eg. the first 5 items with the largest variances
-        target_list = sorted(price_stats.items(), key=lambda x: -x[1][0])[:5]
-        target_name = {product[0] for product in target_list}
 
         # Step 3: Check if the market sells the target list products
-        to_trade = {target for target in target_name if prices.get(target)}
+        to_trade = {target for target in self.profit_order if prices.get(target)}
 
         # if the market doesn't sell the target products, function ends
         if not to_trade:
-            return False
+            return None, None
 
-        # step 4: check if it's the right market to sell/buy
-        sell_now = {product for product in to_trade
-                    if prices[product][0] >= price_stats[product][1]}
+        # step 4: check if it's the right market to sell
+        # While the market is the right one to sell, we must have the an amount in our inventory to sell
+        sell_set = {product for product in to_trade
+                    if prices[product][0] >= self.price_stats[product][1]
+                    and self.inventory[product][0] > 0}
+        # The right market to buy MUST have non-zero items to buy
         buy_set = {product for product in to_trade
-                   if prices[product][0] <= price_stats[product][2]}
+                   if prices[product][0] <= self.price_stats[product][2]
+                   and prices[product][1] > 0}
 
         # step 5: Check if our inventory contains the target products which the market has
         # Also check if the we have some items to sell in inventory
-        sell_set = sell_now.intersection({product for product in self.inventory.keys()
-                                          if self.inventory[product][0] > 0})
-        return sell_set, buy_set
+        # sell_set = sell_now.intersection({product for product in self.inventory.keys()
+        #                                   if self.inventory[product][0] > 0})
+        return buy_set, sell_set
 
-    def purchase(self, this_market_info):
+    def afford_amount(self, market_prices, product):
+        """Compute the maximum amount the player can purchase of a particular product
+        at the current market"""
+        return int(min(market_prices[product][1],
+                       self.gold // market_prices[product][0]))
+
+    def afford_anything(self, market_prices, buy_set):
+        """Boolean function if the player can afford anything at the current market"""
+        if not buy_set:
+            return False
+        for product in buy_set:
+            if self.afford_amount(market_prices, product) > 0:
+                return True
+        return False
+
+    def update_inv_gold(self, prices, inv, prod, prod_amt, gold, action=0):
+        """Helper function to update a given inventory and gold depending on the player action.
+        Args:
+            prices (dict): market prices in the format {product: (price, amount)}
+            inv (dict): inventory type in the format {product: (amount, asset cost)}
+            prod (str): the product to update the inventory
+            prod_amt (int): the amount of product to update the inventory
+            gold (float): the amount of starting gold
+            action (int): 0 if the player is buying
+                          1 if the player is selling
+        Output:
+            inv (dict): Updated dictionary
+            gold (float): Updated gold
+        """
+        if action == 0:
+            inv[prod] = (inv[prod][0] + prod_amt,
+                         prod_amt * prices[prod][0] + inv[prod][1])
+            gold -= prod_amt * prices[prod][0]
+        else:
+            single_cost = inv[prod][1] / inv[prod][0]
+            inv[prod] = (inv[prod][0] - prod_amt,
+                         max(inv[prod][1] - prod_amt * single_cost, 0))
+            gold += prod_amt * prices[prod][0]
+        return inv, gold
+
+    def goal_purchase(self, market_info):
         """Return the item and amount to buy when player is at a destination market.
             Update self inventory and gold too before returning.
 
@@ -473,7 +571,7 @@ class Player(BasePlayer):
                 4. update self inventory, gold, and return output.
                 
             **Note This function is guaranteed to purchase a type of product even
-            when the market couldnt meet our demand to reduce complexity as the
+            when the market cannot meet our demand to reduce complexity as the
             score will be same/reduced when this happens. This is achieved by
             setting initial max_score=0.    
                 
@@ -483,35 +581,29 @@ class Player(BasePlayer):
             2. inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
                 a dictionary of products, amount of products, cost spent buying the items in inventory.            
             3. gold : gold_amt            
-            4. this_market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
+            4. market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
                 a dictionary of prices of item in the current market.
         Output: (product, amount)
         """
-        # TODO: the score needs to be calculated according to the current score, which is the current gold
-        #       and any other goal scores.
-        #       Perhaps include a score calculation and score attribute for the player to self track
         max_score = -math.inf
         buy_amt = 0
         to_buy = None
 
         # find the best item to buy
-        for product in this_market_info.keys():
+        for product in market_info.keys():
 
-            # initialize dummy variables used to record after purchase inventory and gold to compute score         
+            # initialize dummy variables used to record after purchase inventory and gold to compute score
             tmp_inventory = copy.deepcopy(self.inventory)
             tmp_gold = self.gold
             
             # if product is what we need
             if product in self.goal.keys() and self.inventory[product][0] < self.goal[product]:
-                # tmp_amt = MIN(market available, affordable amount, required amount)                                                                
-                tmp_amt = min(int(this_market_info[product][1]),
-                              int(self.gold // this_market_info[product][0]),
-                              int(self.goal[product] - self.inventory[product][0]))
+                tmp_amt = min(int(self.afford_amount(market_info, product)),
+                              self.goal[product] - self.inventory[product][0])
 
                 # update dummy variables to reflect after purchase inventory and gold level
-                tmp_inventory[product] = (tmp_inventory[product][0] + tmp_amt,
-                                          tmp_amt * tmp_inventory[product][1] + this_market_info[product][0])
-                tmp_gold -= tmp_amt * this_market_info[product][0]
+                tmp_inventory, tmp_gold = self.update_inv_gold(market_info, tmp_inventory, product, tmp_amt,
+                                                               tmp_gold, action=0)
 
                 # compute score and update best item to buy
                 tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
@@ -521,12 +613,35 @@ class Player(BasePlayer):
                     max_score = tmp_score
         if to_buy:
             # update self inventory/gold then return purchased item
-            cost = buy_amt * this_market_info[to_buy][0]
-            self.gold = self.gold - cost
-            self.inventory[to_buy] = (self.inventory[to_buy][0] + buy_amt, self.inventory[to_buy][1] + cost)
-            return to_buy, int(buy_amt)
+            self.inventory, self.gold = self.update_inv_gold(market_info, self.inventory, to_buy, buy_amt,
+                                                             self.gold, action=0)
+            return to_buy, buy_amt
         else:
             return None
+
+    def profit_buy(self, prices, buy_set):
+        if not prices:
+            return Command.RESEARCH, None
+        for product in buy_set:
+            buy_amount = self.afford_amount(prices, product)
+            if buy_amount:
+                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, buy_amount,
+                                                                 self.gold, action=0)
+                return Command.BUY, (product, buy_amount)
+            else:
+                return self.move_to_ctr()
+
+    def profit_sell(self, prices, sell_set):
+        if not prices:
+            return Command.RESEARCH, None
+        for product in sell_set:
+            to_sell = self.excess_stock(product)
+            if to_sell:
+                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, to_sell,
+                                                                 self.gold, action=1)
+                return Command.SELL, (product, to_sell)
+            else:
+                return self.move_to_ctr()
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
@@ -701,6 +816,7 @@ def suite():
     test_suite.addTest(KnowledgeTestCase('test_check_goal'))
     test_suite.addTest(KnowledgeTestCase('test_rumours'))
     test_suite.addTest(KnowledgeTestCase('test_prices'))
+    test_suite.addTest(KnowledgeTestCase('test_buy_sell'))
 
     # Strategy testing
     test_suite.addTest(StrategyTestCase('test_first_turn'))
@@ -819,6 +935,39 @@ class KnowledgeTestCase(unittest.TestCase):
         self.assertTrue(p.market_prices)
         self.assertEqual(p.market_prices["A"]["Food"], [90, 100])
 
+    def test_buy_sell(self):
+        p1 = Player()
+        gold = 1000.0
+        goal = {"Food": 10, "Social": 15}
+        market_prices = {'A': {'Food': (109, 700),
+                               'Electronics': (755, 210),
+                               'Social': (47, 1400),
+                               'Hardware': (881, 35)},
+                         'B': {'Food': (95, 700),
+                               'Electronics': (384, 210),
+                               'Social': (49, 1400),
+                               'Hardware': (633, 35)},
+                         'C': {'Food': (80, 700),
+                               'Electronics': (382, 210),
+                               'Social': (46, 1400),
+                               'Hardware': (432, 35)},
+                         'D': {'Food': (113, 700),
+                               'Electronics': (782, 210),
+                               'Social': (73, 1400),
+                               'Hardware': (537, 35)}}
+        p1.set_gold(gold)
+        p1.set_goal(goal)
+        p1.inventory["Food"] = (5, 150)
+        p1.market_prices = market_prices
+        p1.update_stats(set())
+        prices = {'Food': (113, 700),
+                  'Electronics': (794, 210),
+                  'Social': (64, 1400),
+                  'Hardware': (597, 35)}
+        buy, sell = p1.buy_sell(prices)
+        self.assertFalse(buy)
+        self.assertTrue(sell)
+
 
 # Create a class for testing strategy.
 class StrategyTestCase(unittest.TestCase):
@@ -864,7 +1013,7 @@ class StrategyTestCase(unittest.TestCase):
                   'Electronics': (300, 10),
                   'Social': (150, 5),
                   'Hardware': (350, 5)}
-        prod, amt = p.purchase(prices)
+        prod, amt = p.goal_purchase(prices)
         self.assertEqual(prod, 'Food')
         self.assertEqual(amt, 3)
 
