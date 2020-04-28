@@ -523,7 +523,14 @@ class Player(BasePlayer):
             
             # If the player has reached his target, choose a new location to wander to
             else:
-                self.target_loc = self.choose(bg_set, {self.loc})
+                # If the player's only choice is the current node, the end game has been reached and
+                # no market is available. The player should pass to prevent excess charges.
+                new_choice = self.choose(bg_set, {self.loc})
+                if self.target_loc == new_choice:
+                    return Command.PASS, None
+
+                # Otherwise, set a new course for wandering!
+                self.target_loc = new_choice
                 return self.wander(prices, bg_set)
 
     def choose(self, bg_set, ignore_set):
@@ -549,9 +556,9 @@ class Player(BasePlayer):
                 return random.choice(avail)
 
             # The only case where the above set is empty is if the player is in the ignore_set
-            # In which case, just return a random location
+            # In which case, just return a random location that is not in the black and grey set
             else:
-                return random.choice(list(markets))
+                return random.choice(list(markets - bg_set))
 
     def update_stats(self, bg_set):
         """Function to update player knowledge on statistics of the market the only useful 
