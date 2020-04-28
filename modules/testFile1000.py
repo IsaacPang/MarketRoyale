@@ -5,7 +5,7 @@ import time
 start = time.time()
 total_res = []
 game_turns = Game.NUM_TURNS
-games_run = 100
+games_run = 200
 
 player_nums = 7
 

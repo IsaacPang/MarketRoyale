@@ -183,28 +183,32 @@ class Player(BasePlayer):
         self.update_stats(bg_set)
 
         # Once we have enough information, try to achieve the goal
-        # TODO: Need to search for buy locations with statistics
         buy, sell = self.buy_sell(prices)
         target_market = self.search_market(bg_set)
-        if not self.goal_achieved:
-            if target_market:
-                self.target_loc = target_market
-                return self.move_to_buy(prices)
-            else:
-                return self.wander(prices, bg_set)
-
-        # Once the goal has been achieved, switch to profit maximisation to maximise score
-        # Commence Phase 2:
+        if self.turn < self.max_turn - 30:
+            return self.profit_max(target_market, buy, sell, prices)
+        elif not self.goal_achieved:
+            return self.goal_achievement(target_market, buy, prices, bg_set)
         else:
-            if buy and self.afford_anything(prices, buy):
-                return self.profit_buy(prices, buy) # TODO: need to work this out
-            elif sell and self.any_excess(sell):
-                return self.profit_sell(prices, sell)
-            elif target_market:
-                self.target_loc = target_market
-                return self.move_to_buy(prices)
-            else:
-                return self.move_to_ctr()
+            return self.profit_max(target_market, buy, sell, prices)
+
+    def profit_max(self, target_market, buy, sell, prices):
+        if buy and self.afford_anything(prices, buy):
+            return self.profit_buy(prices, buy) # TODO: need to work this out
+        elif sell and self.any_excess(sell):
+            return self.profit_sell(prices, sell)
+        elif target_market:
+            self.target_loc = target_market
+            return self.move_to_buy(prices, buy)
+        else:
+            return self.move_to_ctr()
+
+    def goal_achievement(self, target_market, buy, prices, bg_set):
+        if target_market:
+            self.target_loc = target_market
+            return self.move_to_buy(prices, buy)
+        else:
+            return self.wander(prices, bg_set)
 
     def move_to_ctr(self):
         self.target_loc = self.ctr
@@ -287,7 +291,7 @@ class Player(BasePlayer):
             else:
                 return None
 
-    def move_to_buy(self, prices):
+    def move_to_buy(self, prices, buy_set):
         """Function to continue along the path to the target"""
         if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
@@ -297,8 +301,7 @@ class Player(BasePlayer):
                 if purchase_item:
                     return Command.BUY, purchase_item
                 else:
-                    # TODO: if all goals have been reached, use different purchase strategy
-                    return self.move_to_ctr()
+                    return self.profit_buy(prices, buy_set)
             return Command.RESEARCH, None
 
     def first_turn(self, bg_set):
