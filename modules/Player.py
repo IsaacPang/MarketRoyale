@@ -388,7 +388,14 @@ class Player(BasePlayer):
 
     def nearest_white(self, target_market, bg_set, assessed=set()):
         """Returns the market location closest to the target market that is white
-        If the target market is white, returns the target"""
+           If the target market is white, returns the target.
+        Args:
+            bg_set (set): Set of black and grey markets
+            target_market (str): Target market from search. 
+        
+        Output:
+             (str): return the nearest white market from the current location
+        """
         # return the target market if it is a white market
         if target_market not in bg_set:
             return target_market
@@ -544,6 +551,9 @@ class Player(BasePlayer):
         """Function to update player knowledge on statistics of the market
         The only useful information to the player is a target region where
         the player can actually do business.
+        Args:
+            bg_set (set): Set of black and grey markets
+        Output: None
         """
         product_price = defaultdict(list)
         target_region = set(self.market_prices.keys()) - bg_set
@@ -725,7 +735,16 @@ class Player(BasePlayer):
         return self.wander(prices, bg_set)
 
     def afford_anything(self, market_prices, buy_set):
-        """Boolean function if the player can afford anything at the current market"""
+        """Boolean function if the player can afford anything at the current market
+        Args:
+            market_prices (dict): {market:{product:[price, amount]}}
+                                   dictionary of market and products and price they sell.
+            buy_set (set): set of products that are statistically worth buying at this market
+        
+        Output:
+            (bool): True - If anything is worth buying at this market
+                    False - If nothing is worth buying at this market
+        """
         if not buy_set:
             return False
         for product in buy_set:
