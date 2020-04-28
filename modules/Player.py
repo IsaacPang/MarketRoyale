@@ -14,20 +14,36 @@
 Player class for the Market Royale game.
 
 This module creates a player for the Market Royale game.
+The player is modelled after a rational buyer with imperfect information of the market.
+
+At the start of the game, the player will venture towards the external areas of the map,
+while collecting information along the way to increase the library of market information the player stores.
+Upon reaching a threshold, the player will calculate statistics of the markets to maximise profits.
+
+To maximise profits, the player will visit the markets that have products for sale with prices under the 25th percentile
+of prices of markets known. The player will then visit the markets that will buy the products with prices over 75th
+percentile of prices of markets known.
+
+The statistics of the market will update every turn as the player gains more information from passing players.
+
+The player will also blacklist markets that have nothing for sale of a given product to inform decision making.
+
+To avoid going into negative gold, the player will dump any acquired stock before proceeding with any other strategy.
+
+The player is also very risk averse, preferring to avoid black and grey markets entirely. Since grey markets turn
+black the next turn, the player is effectively treating grey markets as black markets.
 
 At the start of each turn, the player will:
  |Take stock of current inventory.
  |Take stock of current gold.
- |Tally gold on most recent previous market event.
- |Tally gold on most recent previous market colour change (if present).
- |Tally gold on most recent previous overdraft event.
- |Check glossary of researched information.
- |Check glossary of rumoured information. Rumours are information from other players.
+ |Check glossary of market information
+ |Update statistics on the markets
+ |Decide on the strategies available, what to do with information
 
 Given the information, the player can do one of the following at the end of each turn:
  |Research current market.
- |Buy (product, amount) from current market.
- |Sell (product, amount) to current market.
+ |Buy (product, amount) from current market, and update inventory and gold.
+ |Sell (product, amount) to current market, and update inventory and gold.
  |Move to adjacent (market) from current market.
  |Pass turn and do nothing.
 
@@ -98,23 +114,23 @@ class Player(BasePlayer):
         # Increase turn counter
         self.turn += 1
 
-        # define the player location
+        # Define the player location
         self.loc = location
 
         # Update gold
         if self.gold < 0:
             self.gold = self.interest * self.gold
 
-        # blacklist the product in this market if there is nothing here
+        # Blacklist the product in this market if there is nothing here
         if prices:
             for product in prices.keys():
                 if prices[product][1] == 0:
                     self.blacklist[product].add(self.loc)
 
-        # add information from current market
+        # Add information from current market
         self.save_market_prices(prices)
 
-        # collect information from other player
+        # Collect information from other player
         self.collect_rumours(info)
 
         # Determine current strategy
@@ -156,7 +172,8 @@ class Player(BasePlayer):
                     self.market_prices[market] = {k: (v, None) for k, v in information.items()}
 
     def get_strategy(self, prices, bm, gm):
-        """Returns a function that dictates the player's current strategy
+        """Returns a tuple that dictates the player's current strategy based on other strategy functions
+        This function determines strategy by a number of cascading if statements, similar to a simplified decision tree.
         Args:
             prices (dict): Prices of market in current location
             bm (list): List of black markets passed from take_turn
@@ -226,14 +243,8 @@ class Player(BasePlayer):
             return self.profit_max(target_market, buy, sell, prices)
 
     def check_goal(self):
-        """Check if goal is acheived by comparing inventory and goal.
-           Switch self.acheived_goal = True if acheived goal.
-        Args:
-            inventory : {product:[amount, asset_cost]}
-                    dictionary of products in inventory.
-            goal : dictionary {product:amount needed}
-                    dictionary of products required to acheive goal.
-        Output: None
+        """Check if goal is achieved by comparing inventory and goal.
+           Switch self.achieved_goal = True if achieved goal.
         """
         for prod, amount in self.goal.items():
             if self.inventory[prod][0] < amount:
@@ -283,7 +294,6 @@ class Player(BasePlayer):
         Since all edges are currently unweighted, only a simplified breadth-first
         while storing each previous node is required
         """
-        # TODO: add some sort of priority queue with weights according to the market color
         # Set the starting location as the player's current location
         start = self.loc
 
@@ -329,7 +339,6 @@ class Player(BasePlayer):
                     visited[n] = True
                     previous[n] = current
 
-
     def dist_to(self, from_loc, to_loc):
         """Function to calculate the distance between two points
         Args:
@@ -345,13 +354,14 @@ class Player(BasePlayer):
 
     def central_market(self):
         """Function to determine which market is at the centre of the map
-        Player is meant to move to the central market toward the end of the game
+        Player is meant to move to the central market toward the end of the game as part of risk aversion tactic
         """
         # To iterate only once over each node, the minimum distance is first
         # initialised as a maximum possible distance, i.e. the corner of the
         # map. The shape of the circle is also a rectangle, equivalent to the
         # map dimensions. Therefore, the true safest market must satisfy the
         # map ratios as well.
+        #
         # If the current minimum distance is greater than the distance of
         # the current node to the map center, reassign. This must be done
         # while keeping the angle of incident to the map center in mind
@@ -361,6 +371,7 @@ class Player(BasePlayer):
         map_ratio = self.map.map_width / self.map.map_height
         min_dist = self.dist_to(map_corner, map_center)
         distance_dict = dict()
+        min_node = self.loc
         for node, coord in node_coords.items():
             coord = coord[:2]
             current_dist = self.dist_to(coord, map_center)
@@ -382,18 +393,18 @@ class Player(BasePlayer):
         if target_market not in bg_set:
             return target_market
 
-        # get the neighbours of the target market that have not been assessed
-        # if this set less the black/grey market set is not empty,
-        # return a random target white market
+        # Get the neighbours of the target market that have not been assessed
+        # If this set less the black/grey market set is not empty,
+        # Return a random target white market
         neighbours = self.map.get_neighbours(target_market)
         neighbour_set = neighbours - assessed
         white_set = neighbour_set - bg_set
         if white_set:
             return random.choice(list(white_set))
 
-        # otherwise, the assessed locations and all of the neighbours are black
-        # The assessed should be updated to include all neighbours
-        # and a random next_market chosen from any of the neighbour set
+        # Otherwise, the assessed locations and all of the neighbours are black
+        # The assessed should be updated to include all neighbours and a random
+        # next_market chosen from any of the neighbour set
         else:
             assessed.add(target_market)
             assessed = assessed.union(neighbour_set)
@@ -401,20 +412,31 @@ class Player(BasePlayer):
             return self.nearest_white(next_market, bg_set, assessed)
 
     def cut_losses(self, prices):
-        # prices = {product: (prices, amounts)}
-        # inventory = {product: (amount, cost)}
+        """Panic button function for the player to decide what part of his inventory to sell if goal is negative.
+        This avoids any further interest charges, the player will first dump any excess stock. If this function is
+        called without excess stock, the player will then choose which item that can be sold while maximising current
+        assets"""
+        # Price and inventory structure for reference
+        # Prices = {product: (prices, amounts)}
+        # Inventory = {product: (amount, cost)}
+        # Determine which product to dump if it is in excess.
         excess_product = self.any_excess(set(prices.keys()))
         if excess_product:
             to_sell = excess_product
             sell_num = self.excess_stock(excess_product)
 
+        # If there is no excess product, identify minimum asset loss
         else:
             final_assets = -math.inf
             to_sell = None
             sell_num = 0
             for product, info in self.inventory.items():
+                # Calculate the number of the currently assessed product required to
+                # offset the negative gold cost
                 tmp_num = -int(self.gold // prices[product][0])
+                # Only consider the items in inventory that can fully amortise the negative gold
                 if info[0] >= tmp_num:
+                    # Assess the situation by creating a faux inventory for analysis
                     tmp_inv = copy.deepcopy(self.inventory)
                     tmp_inv, _ = self.update_inv_gold(prices, tmp_inv, product, tmp_num, gold=0, action=1)
                     tmp_assets = sum([cost for amt, cost in tmp_inv.values()])
@@ -423,13 +445,19 @@ class Player(BasePlayer):
                         to_sell = product
                         sell_num = tmp_num
 
+        # If the player does not have enough in his inventory, he will decide to dump the most expensive of
+        # any one of the player's inventory.
         if to_sell is None:
-            to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
+            to_sell = max(self.inventory, key=lambda x: self.inventory[x][0] * prices[x][0])
             sell_num = self.inventory[to_sell][0]
 
+        # Return the command tuple for the stategy output
         return Command.SELL, (to_sell, sell_num)
 
     def move_to_ctr(self):
+        """Function for the player to return to the centre of the map.
+        If the player is at the centre of the map and no other checks were made prior to function call,
+        the player passes."""
         self.target_loc = self.ctr
         next_move = self.get_next_step(self.target_loc)
         if next_move:
@@ -438,10 +466,19 @@ class Player(BasePlayer):
             return Command.PASS, None
 
     def excess_stock(self, product):
+        """Function to determine the amount of excess stock of a given product.
+        Args:
+            product (str): Product currently assessed
+        Output:
+            (int): The number of items in the inventory of that product that is greater than the goal amount.
+            """
         return max(int(self.inventory[product][0] - self.goal[product]), 0)
 
     def any_excess(self, sell_set):
-        """Function to determine if any excess stock in sell set exists in player inventory"""
+        """Function to determine if any excess stock in sell set exists in player inventory.
+        The player should already be in a position to determine if the current market has a set of items that are
+        worthy of sale. This returns the product if the player has an excess of that product to sell for profit.
+        """
         for product in sell_set:
             if self.excess_stock(product):
                 return product
@@ -611,7 +648,7 @@ class Player(BasePlayer):
             """
         if prices:
             if buy and self.afford_anything(prices, buy):
-                return self.profit_buy(prices, buy) # TODO: need to work this out
+                return self.profit_buy(prices, buy)
             elif sell and self.any_excess(sell):
                 return self.profit_sell(prices, sell)
             elif target_market:
@@ -744,18 +781,19 @@ class Player(BasePlayer):
             buy_amount = self.afford_amount(prices, product)
             if buy_amount:
                 return Command.BUY, (product, buy_amount)
-            else:
-                return self.move_to_ctr()
+        return self.move_to_ctr()
 
     def profit_sell(self, prices, sell_set):
         if not prices:
             return Command.RESEARCH, None
         for product in sell_set:
-            to_sell = self.excess_stock(product)
+            if self.goal_achieved:
+                to_sell = self.excess_stock(product)
+            else:
+                to_sell = self.inventory[product][0]
             if to_sell:
                 return Command.SELL, (product, to_sell)
-            else:
-                return self.move_to_ctr()
+        return self.move_to_ctr()
 
     def compute_score(self, inventory, gold, goal):
         """Compute and return score.
