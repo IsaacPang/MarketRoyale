@@ -78,7 +78,6 @@ class Player(BasePlayer):
         self.market_prices = {}                       # prices from self/players:     {market:{product:[price, amount]}}
         self.inventory = defaultdict(lambda: (0, 0))  # record items in inventory:    {product:(amount, asset_cost)}
         self.gold = 0                                 # gold:                            0,1,..*
-        self.score = 0                                # score from inventory and gold:   0,1,..*
         self.goal_achieved = False                    # indicates whether goal achieved: True/False
         self.visited_node = defaultdict(int)          # location visit counts:           {location: times_visited}
         self.loc = ''                                 # player's current location
@@ -266,9 +265,6 @@ class Player(BasePlayer):
         """
         # Set the central market
         self.ctr, distances = self.central_market()
-
-        # Set the score to be equal to the amount of gold
-        self.score = self.gold
 
         # Determine the furthest node from the central market
         t1_target = max(distances, key=distances.get)
@@ -780,7 +776,7 @@ class Player(BasePlayer):
         for product in self.profit_order:
             if product in buy_set:
                 buy_amount = self.afford_amount(prices, product)
-                if buy_amount:
+                if buy_amount > 0:
                     return Command.BUY, (product, buy_amount)
 
         # If buy_set is empty, then the player needs to wander from the current location.
@@ -876,7 +872,12 @@ class Player(BasePlayer):
         
         # otherwise, the player must have arrived at the location.
         elif self.loc == self.target_loc:
+            # If the player knows the prices of the current market, the player proceeds with deciding what todo
+            # If the player doesn't know, the player will research the market.
             if prices:
+                # player now assesses to buy products to achieve the goal.
+                # if the the goal has been achieved, purchase item returns None.
+                # the player then should choose to buy to maximise profit.
                 purchase_item = self.goal_purchase(prices)
                 if purchase_item:
                     return Command.BUY, purchase_item
@@ -885,29 +886,18 @@ class Player(BasePlayer):
             return Command.RESEARCH, None
 
     def goal_purchase(self, market_info):
-        """Return the item and amount to buy when player is at a destination market.
-            Update self inventory and gold too before returning.
-
-                1. Find required item to buy (item in goal and under target amount)
-                2. Calculate amount to buy
-                3. If there are multiple items to required select base on highest score
-                   after purchase
-                4. update self inventory, gold, and return output.
-
-            **Note This function is guaranteed to purchase a type of product even
-            when the market cannot meet our demand to reduce complexity as the
-            score will be same/reduced when this happens. This is achieved by
-            setting initial max_score=0.
+        """Return the item and amount to buy when player is at a destination market, subjected to
+        the goal condition of the player's inventory.
+            1. Find required item to buy (item in goal and under target amount)
+            2. Calculate amount to buy
+            3. If there are multiple items to required select base on highest score
+               after purchase
 
         Args:
-            1. goal: {prod1:amt1, prod2:amt2}
-                a dictionary of products required to achieve goal.
-            2. inventory: {prod1:[amt1, asset_cost1], prod2:[amt2, asset_cost2]}
-                a dictionary of products, amount of products, cost spent buying the items in inventory.
-            3. gold : gold_amt
-            4. market_info: {prod1:(p1, amt1), prod2:(p2, amt2), prod3:(p3, amt3), prod4:(p4, amt4)}
-                a dictionary of prices of item in the current market.
-        Output: (product, amount)
+            market_info (dict): the prices of this market.
+        Output: 
+            (product, amount) (tuple): The tuple of product and amount to buy of that product.
+                                       If the goal has been achieved, returns None.
         """
         max_score = self.gold
         buy_amt = 0
@@ -931,18 +921,25 @@ class Player(BasePlayer):
 
                 # compute score and update best item to buy
                 tmp_score = self.compute_score(tmp_inventory, tmp_gold, self.goal)
-                if tmp_score >= max_score:
+                if tmp_score > max_score:
                     to_buy = product
                     buy_amt = int(tmp_amt)
                     max_score = tmp_score
-        if to_buy:
-            return to_buy, buy_amt
+        if to_buy is not None:
+            if buy_amt > 0:
+                return to_buy, buy_amt
         else:
             return None
 
     def afford_amount(self, market_prices, product):
         """Compute the maximum amount the player can purchase of a particular product
-        at the current market"""
+        at the current market.
+        Args:
+            market_prices (dict): the prices of this market
+            product (str): the product being assessed.
+        Output:
+            (int): The amount of the product that the player can afford to buy
+        """
         return int(min(market_prices[product][1],
                        self.gold // market_prices[product][0]))
 
@@ -982,19 +979,29 @@ class Player(BasePlayer):
             inv (dict): Updated dictionary
             gold (float): Updated gold
         """
+        # If the player is buying, reduce inventory and increase gold accordingly
         if action == 0:
             inv[prod] = (inv[prod][0] + prod_amt,
                          prod_amt * prices[prod][0] + inv[prod][1])
             gold -= prod_amt * prices[prod][0]
+
+        # If the player is selling, do the reverse
         else:
             single_cost = inv[prod][1] / inv[prod][0]
             inv[prod] = (inv[prod][0] - prod_amt,
                          max(inv[prod][1] - prod_amt * single_cost, 0))
             gold += prod_amt * prices[prod][0]
+
         return inv, gold
 
     def get_next_step(self, target_location):
-        """Returns the next step on the path required.
+        """Returns the next step on the path required, since the player can only move to an adjacent
+        market.
+        Args:
+            target_location (str): The target location to move to.
+        Output:
+            adjacent_market (str): The market to go to. If the player is already at the target,
+                                   returns None
         """
         shortest_path = self.get_path_to(target_location)
 
@@ -1006,11 +1013,9 @@ class Player(BasePlayer):
             adjacent_market = shortest_path[1]
         except (IndexError, TypeError):
             adjacent_market = None
+
         return adjacent_market
 
-    # __________________________________________________________________________
-    #                              END TODO
-    # __________________________________________________________________________
 
     def __repr__(self):
         """Define the representation of the Player as the state of
@@ -1021,8 +1026,6 @@ class Player(BasePlayer):
 
 
 # ========================= TESTS ===================================
-# TODO: Ensure Map & Game are imported for testing
-# TODO: Test cases need to be more organised with themes around test cases
 
 import unittest
 import string
@@ -1293,17 +1296,17 @@ def test_static_map():
 
 
 if __name__ == "__main__":
-    # Print visual diagnostics
-    player = Player()
-    player.map = test_map()
-    player.loc = "A"
-    central_market = player.central_market()[0]
-    next_step = player.get_next_step(central_market)
-    next_path = player.get_path_to(central_market)
-    player.map.pretty_print_map()
-    print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
-    print(f"The quickest path is {list(next_path)}. This takes {len(next_path)} turns.")
-    print(f"The central market is {central_market}")
+    # # Print visual diagnostics
+    # player = Player()
+    # player.map = test_map()
+    # player.loc = "A"
+    # central_market = player.central_market()[0]
+    # next_step = player.get_next_step(central_market)
+    # next_path = player.get_path_to(central_market)
+    # player.map.pretty_print_map()
+    # print(f"From {player.loc}, the next step to {central_market} is {next_step}.")
+    # print(f"The quickest path is {list(next_path)}. This takes {len(next_path)} turns.")
+    # print(f"The central market is {central_market}")
 
     runner = unittest.TextTestRunner()
     runner.run(suite())
