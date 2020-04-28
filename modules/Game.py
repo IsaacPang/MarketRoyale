@@ -186,7 +186,6 @@ class Game:
                     return((p_info[INFO_OBJ], traceback.format_exc()))
 
                 if cmd == Command.MOVE_TO:
-                    print(data)
                     assert(type(data) is str)
                     if self.map.is_road(p_info[INFO_LOC], data):
                         msg.append("Moved from {} to {}".format(p_info[INFO_LOC], data))
