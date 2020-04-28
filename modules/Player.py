@@ -120,6 +120,13 @@ class Player(BasePlayer):
         # Determine current strategy
         cmd, data = self.get_strategy(prices, bm, gm)
 
+        if cmd == Command.BUY:
+            self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, data[0], data[1], self.gold,
+                                                             action=0)
+        elif cmd == Command.SELL:
+            self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, data[0], data[1], self.gold,
+                                                             action=1)
+
         return cmd, data
 
     def get_strategy(self, prices, bm, gm):
@@ -221,8 +228,6 @@ class Player(BasePlayer):
         for product in prices.keys():
             to_dump = self.excess_stock(product)
             if to_dump:
-                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, to_dump,
-                                                                 self.gold, action=1)
                 return Command.SELL, (product, to_dump)
         return Command.PASS, None
 
@@ -253,7 +258,6 @@ class Player(BasePlayer):
             to_sell = max(self.inventory, key=lambda x: self.inventory[x][1])
             sell_num = self.inventory[to_sell][0]
 
-        self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, to_sell, sell_num, self.gold, action=1)
         return Command.SELL, (to_sell, sell_num)
 
     def wander(self, prices, bg_set):
@@ -612,9 +616,6 @@ class Player(BasePlayer):
                     buy_amt = int(tmp_amt)
                     max_score = tmp_score
         if to_buy:
-            # update self inventory/gold then return purchased item
-            self.inventory, self.gold = self.update_inv_gold(market_info, self.inventory, to_buy, buy_amt,
-                                                             self.gold, action=0)
             return to_buy, buy_amt
         else:
             return None
@@ -625,8 +626,6 @@ class Player(BasePlayer):
         for product in buy_set:
             buy_amount = self.afford_amount(prices, product)
             if buy_amount:
-                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, buy_amount,
-                                                                 self.gold, action=0)
                 return Command.BUY, (product, buy_amount)
             else:
                 return self.move_to_ctr()
@@ -637,8 +636,6 @@ class Player(BasePlayer):
         for product in sell_set:
             to_sell = self.excess_stock(product)
             if to_sell:
-                self.inventory, self.gold = self.update_inv_gold(prices, self.inventory, product, to_sell,
-                                                                 self.gold, action=1)
                 return Command.SELL, (product, to_sell)
             else:
                 return self.move_to_ctr()
