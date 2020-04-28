@@ -514,12 +514,18 @@ class Player(BasePlayer):
         Output:
             cmd (tup): A command tuple Command.COMMAND, and associated viable data
         """
+        # If the current market is neither researched nor in the set of black and grey markets,
+        # research this market
         if self.loc not in self.researched.union(bg_set):
             self.researched.add(self.loc)
             return Command.RESEARCH, None
         else:
+            # Otherwise, check if we have arrived at a previously defined target market
+            # If the player has not reached his target, move to the next step towards that target
             if self.loc != self.target_loc and self.target_loc is not None:
                 return Command.MOVE_TO, self.get_next_step(self.target_loc)
+            
+            # If the player has reached his target, choose a new location to wander to
             else:
                 self.target_loc = self.choose(bg_set, {self.loc})
                 return self.wander(prices, bg_set)
@@ -536,26 +542,35 @@ class Player(BasePlayer):
         markets = set(self.map.get_node_names())
         researched = self.researched
         # First check if there are any available markets that have not been researched
+        # If there are any available markets, choose a random one to return
         avail = list(markets - researched - bg_set - ignore_set)
         if avail:
             return random.choice(avail)
         else:
-            # Check if there are any markets that are not researched.
+            # Check if there are any markets that are researched to return
             avail = list(markets - bg_set - ignore_set)
             if avail:
                 return random.choice(avail)
+
+            # The only case where the above set is empty is if the player is in the ignore_set
+            # In which case, just return a random location
             else:
                 return random.choice(list(markets))
 
     def update_stats(self, bg_set):
-        """Function to update player knowledge on statistics of the market
-        The only useful information to the player is a target region where
-        the player can actually do business.
+        """Function to update player knowledge on statistics of the market the only useful 
+        information to the player is a target region where the player can actually do business.
+        This function does not return anything as it is meant to update the class instances'
+        attributes
         Args:
             bg_set (set): Set of black and grey markets
         Output: None
         """
         product_price = defaultdict(list)
+
+        # The target region for the risk averse player is the region that does not include any
+        # black or grey markets. For this reason, the player will only update the statistics within
+        # this region.
         target_region = set(self.market_prices.keys()) - bg_set
         for market in target_region:
             for product in self.market_prices[market].keys():
@@ -567,32 +582,37 @@ class Player(BasePlayer):
                                       np.percentile(product_price[product], 75),
                                       np.percentile(product_price[product], 25))
                             for product in product_price.keys()}
+
+        # The player will then create a list in order of their variances to determine which item
+        # will sell for the greatest profit. This is ordered in descending order to determine which
+        # item is required to trade first
         target_list = sorted(self.price_stats.items(), key=lambda x: -x[1][0])[:5]
         self.profit_order = [product[0] for product in target_list]
+
         return None
 
     def buy_sell(self, prices):
-        """ The purpose of selling is to maximise profit(buy low sell high to take arbitrage)
-        Selling is only executed in the later periods when we have sufficient amount of info AND goal
-        is completed. To check if a product worth trading, compute the variances for the product prices across
-        all the markets. If the variance is small, it implies the price for the product is stable, so no much
-        space for arbitrage and we don't have to bother with this product.
-        Step 1:  Order variance knowledge of the market in descending order
-        Step 2:  make a target list consisting of eg. the first 5 products as the products we aim to sell
-        Step 3:  Check if the market sells the target list products
-                 if yes, go to step 4
-        4. Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
+        """ The purpose of selling is to maximise profit(buy low, sell high to take arbitrage).
+        To deem a product worth trading, the player assesses the variances of the product previously
+        calculated. Small variances implies the price of the product is stable, and there is no room
+        for arbitrage.
+        1. Make a target list consisting of the first 5 products as the products we aim to sell
+        2. Check if the market sells the target list products. If yes, go to step 3
+        3. Check if we are suppose to sell the products in this market, ie. is it the right place to sell?
                  Decision making:
-                    If the price at this market is above eg. the 75th percentile of the all the prices for this product,
-                    it suggests it is the right place to sell
+                    If the price at this market is above eg. the 75th percentile of the all the prices 
+                    for this product, it suggests it is the right place to sell
                     --- Implication: if it's below 25th percentile, possibly a right place to buy
+                 If yes, go to step 4
+        4. Check if our inventory contains the target products which the market has
                  If yes, go to step 5
-        5. Check if our inventory contains the target products which the market has
-                 If yes, go to step 6
-        Step 6: Sell the target products
+        5. Sell the target products
+        Args:
+            prices (dict): the market prices at the player's current location.
+        Output:
+            buy_set, sell_set (tup): A tuple of set() objects that contain the products that are
+            worthy of purchase (buy_set) or sale (sell_set)
         """
-        
-
         # Check if the market sells the target list products
         to_trade = {target for target in self.profit_order if prices.get(target)}
 
@@ -605,6 +625,7 @@ class Player(BasePlayer):
         sell_set = {product for product in to_trade
                     if prices[product][0] >= self.price_stats[product][1]
                     and self.inventory[product][0] > 0}
+
         # The right market to buy MUST have non-zero items to buy
         buy_set = {product for product in to_trade
                    if prices[product][0] <= self.price_stats[product][2]
@@ -614,9 +635,17 @@ class Player(BasePlayer):
         return buy_set, sell_set
 
     def search_market(self, bg_set, risk=0):
-        """Given current location, inventory, gold, and goal, what is the best market to buy from.
+        """Given current location, inventory, gold, and goal, what is the best market to buy from?
            What market to choose if doesn't have any researched/rumoured information?
-           Feel free to improvise and document the details here.
+           The action the player takes for the market to search is dependent on several factors,
+           most importantly if the player is risk taking or risk averse.
+           
+           If the player is risk taking, presumably the player will ignore the objective to reach
+           the goal; the player buys and sells purely for profit maximisation.
+
+           If the player is not, the player will achieve their goal and only buy and sell according
+           to keep goal amounts to gatekeep the score.
+
         Args:
             bg_set (set): Set of black and grey markets
             risk (int): 0 if the player is attempting to buy and sell as much as possible
@@ -625,10 +654,6 @@ class Player(BasePlayer):
             target_market (str): returns the target market from search. If all information on markets
                                  are black, returns None
         """
-        # action (int):
-        # 0 if the player is searching to buy
-        # 1 if the player is searching to sell
-
         if risk:
             # If the player is risk averse, the player wishes to first buy up to the goal amount
             action = 0
@@ -647,7 +672,7 @@ class Player(BasePlayer):
                     product_targets = self.profit_order
 
         # If the player is not risk averse, the player will choose to buy or sell according to
-        # Profit amounts
+        # profit amounts
         else:
             action = 1
             product_targets = [product for product in self.profit_order
@@ -658,6 +683,9 @@ class Player(BasePlayer):
                     product_targets.append(product)
                     break
 
+        # The player's target region is still one without black or grey markets, since the purchase
+        # function will empty our gold coffers completely, and we must avoid going into the
+        # negative.
         target_region = set(self.market_prices.keys()) - bg_set
         possible_targets = set()
         if product_targets:
@@ -666,7 +694,8 @@ class Player(BasePlayer):
                     market_price = self.market_prices[market][product][0]
                     if action == 0:
                         # get the 25th percentile price of this product to buy
-                        curr_price = self.price_stats[product][2]  # possible_targets[product][1]
+                        curr_price = self.price_stats[product][2]
+
                         # check if market is not blacklisted for this product
                         if market not in self.blacklist[product]:
                             if market_price < curr_price:
@@ -688,38 +717,95 @@ class Player(BasePlayer):
         return target_market
 
     def profit_max(self, target_market, buy, sell, prices, bg_set, risk=0):
-        """Switch function for the player to maximise profit
+        """Switch function for the player to maximise profit instead of following the goal.
         Args:
-            target_market (str): The location of market of interest as a result of market searching
+            target_market (str): The location of market of interest as a result of market searching.
             buy (set): The set of items to buy at the current location based on statistical knowledge
             sell (set): The set of items to sell at the current location based on statistical knowledge
-            prices (dict): The market prices of the current location
-            """
+            prices (dict): The market prices of the current location.
+            bg_set (set): The set of black and grey markets.
+            risk (int): 0 if the player is risk taking and purchasing for profit.
+                        1 if the player is risk averse and selling only excess stock.
+        Output:
+            cmd (tup): This function outputs a Command.CMD, data for a given command according to
+                       the function it calls.
+        """
+        # If the player knows the prices of the current market, the player proceeds with deciding what todo
+        # If the player doesn't know, the player will research the market.
         if prices:
+            # If the statistics of the player demands it, buy will be not empty
+            # The player then checks if he can afford to buy anything at this market
+            # If he can, he buys for profit.
             if buy and self.afford_anything(prices, buy):
                 return self.profit_buy(prices, buy, bg_set)
+
+            # Otherwise, the player then checks if he has any excess stock if 
+            # the current market is statistically relevant to sell.
+            # The player then chooses to sell according to the current risk taking
+            # behaviour.
             elif sell and self.any_excess(sell):
                 return self.profit_sell(prices, sell, bg_set, risk)
+
+            # The player then decides if a target market has been acquired as a result
+            # of a previous search, and moves to that market to make a purchase decision.
             elif target_market:
                 self.target_loc = target_market
                 return self.move_to_buy(prices, buy, bg_set)
+
+            # Otherwise, the player needs more market information, and must therefore
+            # wander the map
             else:
                 return self.wander(prices, bg_set)
+
         return Command.RESEARCH, None
 
     def profit_buy(self, prices, buy_set, bg_set):
+        """Function to decide how much to buy to maximise profit.
+        Args:
+            prices (dict): the current market prices
+            buy_set (set): the set of products to buy in this market
+            bg_set (set): the set of black and grey markets
+        Output:
+            cmd (tuple): Command.CMD, data tuple, depending on if a product is purchased or if more
+                         information is required.
+        """
+        # If the player knows the prices of the current market, the player proceeds with deciding what todo
+        # If the player doesn't know, the player will research the market.
         if not prices:
             return Command.RESEARCH, None
+
+        # The player assesses the products in order of profit as previously decided.
+        # These products must be within the buy_set, which confirms that this market is within the
+        # 25th percentile of prices for buying purposes.
         for product in self.profit_order:
             if product in buy_set:
                 buy_amount = self.afford_amount(prices, product)
                 if buy_amount:
                     return Command.BUY, (product, buy_amount)
+
+        # If buy_set is empty, then the player needs to wander from the current location.
         return self.wander(prices, bg_set)
 
     def profit_sell(self, prices, sell_set, bg_set, risk=0):
+        """Function to decide how much to sell to maximise profit.
+        Args:
+            prices (dict): the current market prices
+            sell_set (set): the set of products to sell in this market
+            bg_set (set): the set of black and grey markets
+            risk (int): 0 if the player is risk taking and purchasing for profit.
+                        1 if the player is risk averse and selling only excess stock.
+        Output:
+            cmd (tuple): Command.CMD, data tuple, depending on if a product is purchased or if more
+                         information is required.
+        """
+        # If the player knows the prices of the current market, the player proceeds with deciding what todo
+        # If the player doesn't know, the player will research the market.
         if not prices:
             return Command.RESEARCH, None
+
+        # The player assesses the products in order of profit as previously decided.
+        # These products must be within the buy_set, which confirms that this market is within the
+        # 75th percentile of prices for buying purposes.
         for product in self.profit_order:
             if product in sell_set:
                 if risk:
@@ -728,6 +814,8 @@ class Player(BasePlayer):
                     to_sell = self.inventory[product][0]
                 if to_sell:
                     return Command.SELL, (product, to_sell)
+
+        # If sell_set is empty, then the player needs to wander from the current location.
         return self.wander(prices, bg_set)
 
     def afford_anything(self, market_prices, buy_set):
@@ -749,16 +837,44 @@ class Player(BasePlayer):
         return False
 
     def opt_goal_achievement(self, target_market, buy, prices, bg_set):
+        """Function to for the player to optimise to achieve the goal.
+        Args:
+            target_market (str): The target market for the player as a result of a market search.
+            buy (set): The set of items to buy at this market
+            prices (dict): The prices of this market
+            bg_set (set): The set of black and grey markets
+        Output:
+            cmd (tup): The tuple of Command.CMD, data as a result of either the buy or wander
+                       functions.
+        """
+        # If the search market returns a worthy market, the player goes to the market
+        # with the aim to buy
         if target_market:
             self.target_loc = target_market
             return self.move_to_buy(prices, buy, bg_set)
+
+        # Otherwise, the player must wander to gather more information.
         else:
             return self.wander(prices, bg_set)
 
     def move_to_buy(self, prices, buy_set, bg_set):
-        """Function to continue along the path to the target"""
+        """Function that allows the player to continue moving with purpose, instead of wandering.
+        This function is normally called once a target market has been acquired and the player
+        does not want to waste time by wandering around other markets. Note that the searched market
+        changes dynamically every turn.
+        Args:
+            prices (dict): the prices of products at this market
+            buy_set (set): the set of items to buy that are statistically worth buying, at this
+                           market
+            bg_set (set): the set of black and grey markets
+        Output:
+            cmd (tuple): The tuple of Command.CMD, data
+        """
+        # If the player has not arrived at the target location, move there with purpose.
         if self.loc != self.target_loc:
             return Command.MOVE_TO, self.get_next_step(self.target_loc)
+        
+        # otherwise, the player must have arrived at the location.
         elif self.loc == self.target_loc:
             if prices:
                 purchase_item = self.goal_purchase(prices)
