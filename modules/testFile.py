@@ -1,5 +1,5 @@
 from Game import Game
-from Player import Player
+from Player3 import Player
 
 
 p1 = Player()
