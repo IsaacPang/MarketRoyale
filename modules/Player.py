@@ -48,12 +48,59 @@ Given the information, the player can do one of the following at the end of each
  |Pass turn and do nothing.
 
 Authors: Syndicate 8 - MBusA2020 Module 2
-             Renee He            (h.he13@student.unimelb.edu.au)
-             Joshua Xujuang Lin  (xujiang.lin@student.unimelb.edu.au)
-             Ellie Meng          (h.meng2@student.unimelb.edu.au)
              Isaac Pang          (i.pang2@student.unimelb.edu.au)
              Tann Tan            (h.tan49@student.unimelb.edu.au)
+             Renee He            (h.he13@student.unimelb.edu.au)
+             Ellie Meng          (h.meng2@student.unimelb.edu.au)
              Grace Zhu           (grace.zhu@student.unimelb.edu.au)
+             Joshua Xujuang Lin  (xujiang.lin@student.unimelb.edu.au)
+
+Roles:  Isaac  = Planning, Architecture, Optimisation, Strategy, Refactoring
+        Tann   = Pathing, Optimisation, Strategy
+        Renee  = Optimisation, Strategy & Statistics
+        Ellie  = Optimisation, Strategy, Foundational Functions
+        Grace  = Optimisation, Strategy, Player Finance Management
+        Joshua = Optimisation, Player Functions
+
+Items Authored (Work Breakdown):
+    Isaac:
+        get_strategy
+        wander
+        profit_max
+        opt_goal_achievement
+        excess_stock
+        any_excess
+        dump_stock
+        cut_losses
+        take_turn
+    Tann:
+        get_next_step
+        get_path_to
+        compute_score
+        central_market
+        nearest_white
+    Renee:
+        update_stats
+        buy_sell
+        profit_buy
+        profit_sell
+    Ellie:
+        save_market_prices
+        check_goal
+        collect_rumours
+        move_to_buy
+        search_market
+    Grace:
+        goal_purchase
+        afford_amount
+        afford_anything
+        update_inv_gold
+    Joshua:
+        __init__
+        __repr__
+        first_turn
+        choose
+        dist_to
 """
 
 import Command
